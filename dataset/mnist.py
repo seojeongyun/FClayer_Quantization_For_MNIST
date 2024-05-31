@@ -61,50 +61,11 @@ class data_loader(Dataset):
         return len(self.mnist)
 
     def __getitem__(self, index):
-        img = torch.tensor(self.mnist[index][1])
+        img = torch.tensor(self.mnist[index][1]) / 255.
         label = self.mnist[index][0]
 
 
         return img, label
-
-    @staticmethod
-    def mat_to_rgb(image):
-        image_rgb = np.zeros([image.shape[0], image.shape[1], 3])
-        image_rgb[np.where(image == 0)] = (0, 0, 0)
-        image_rgb[np.where(image == 1)] = (71, 100, 100)
-        image_rgb[np.where(image == 2)] = (255, 228, 0)
-        return image_rgb
-
-    def get_transformer(self):
-        if self.augmentation:
-            if self.task == 'train':
-                fn_trans = transforms.Compose(
-                    [
-                        transforms.Resize(self.img_size,
-                                          interpolation=transforms.InterpolationMode.NEAREST),
-                        transforms.RandomHorizontalFlip(),
-                        transforms.RandomVerticalFlip(),
-                        transforms.RandomRotation(degrees=(0, 90)),
-                        transforms.ToTensor(),
-                    ]
-                )
-            else:
-                fn_trans = transforms.Compose(
-                    [
-                        transforms.Resize(self.img_size,
-                                          interpolation=transforms.InterpolationMode.NEAREST),
-                        transforms.ToTensor()
-                    ]
-                )
-        else:
-            fn_trans = transforms.Compose(
-                [
-                    transforms.Resize(self.img_size,
-                                      interpolation=transforms.InterpolationMode.NEAREST),
-                    transforms.ToTensor()
-                ]
-            )
-        return fn_trans
 
     @staticmethod
     def collate_fn(batch):

@@ -44,4 +44,5 @@ def show(image):
     pyplot.show()
 
 if __name__ == '__main__':
-    a = read(dataset='training', path='/home/jysuh/Downloads')
+    img = read(dataset='training', path='/storage/jysuh/dataset')
+    label = read(dataset='')
