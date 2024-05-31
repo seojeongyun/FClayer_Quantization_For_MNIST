@@ -57,6 +57,7 @@ class data_loader(Dataset):
             mnist_data.append(get_img(i))
 
         return mnist_data
+
     def __len__(self):
         return len(self.mnist)
 
@@ -64,16 +65,26 @@ class data_loader(Dataset):
         img = torch.tensor(self.mnist[index][1]) / 255.
         label = self.mnist[index][0]
 
-
         return img, label
+
+    @staticmethod
+    def make_one_hot_vec(label):
+        labels = []
+        for idx, value in enumerate(label):
+            one_hot_vec = np.zeros(10)
+            one_hot_vec[value] = 1
+            labels.append(one_hot_vec)
+        return torch.tensor(np.array(labels))
 
     @staticmethod
     def collate_fn(batch):
         """Merges a list of samples to form a mini-batch of Tensor(s)"""
         inputs, labels = zip(*batch)
         #
+        #
         inputs = torch.cat(inputs, dim=0)
         labels = torch.cat(labels, dim=0)
+        labels = data_loader.make_one_hot_vec(labels)
         #
         return inputs, labels
 
