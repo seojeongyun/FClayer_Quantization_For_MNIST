@@ -8,11 +8,28 @@ import numpy as np
 
 from torch.utils.data import DataLoader
 
-
 class Trainer():
-    def __init__(self, cfg, device=torch.device('cpu')):
+    def __init__(self, cfg, device=torch.device('cpu'),
+                 model_type='FCN', compression='nothing', pruning_ratio=0.0,
+                 layer_dim=[784, 98, 10], dropout=0.5, dropout_pos=0):
         self.cfg = cfg
         self.device = device
+
+        # ===== model compression config =====
+        self.model_type = cfg['model']['type']            # FCN or CNN
+        self.compression = compression          # the combinations of model compression technologies
+        #
+        # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
+        # 'quantization+pruning', 'quantization+knowledge_distillation', 'pruning+knowledge_distillation'
+        # 'quantization+pruning+knowledge_distillation'
+        # the default value is 'nothing'
+        #
+        self.pruning_ratio = pruning_ratio
+
+        # ===== model config =====
+        self.layer_dim = layer_dim
+        self.dropout_pos = dropout_pos
+        self.dropout_ratio = dropout
 
         # ===== save config =====
         self.save_path = self.make_save_path()
@@ -40,8 +57,8 @@ class Trainer():
         self.max_epoch = self.cfg['solver']['max_epoch']
         self.max_stepnum = len(self.train_loader) # 1 epoch 내에 몇 번을 도는지
 
-    def make_save_file_name(self):
 
+    def make_save_file_name(self):
         # ===== consider model layer =====
         # what kinds of model ?
         # how many stacked layer ?
@@ -56,25 +73,25 @@ class Trainer():
         # how much pruning ratio ?
         # other hyper parameter in quantization or knowledge distillation
 
-        what_kind_of_model = self.cfg['model']['type'] + '_'
-        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
+        what_kind_of_model = self.model_type + '_'
+        how_many_stacked_layer = str(len(self.layer_dim)-1) + '_'
         how_much_dimension_of_each_layer = ''
-        for dim in self.cfg['model']['layer_dim']:
+        for dim in self.layer_dim:
             how_much_dimension_of_each_layer += str(dim) + '_'
 
-        where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
-        how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
+        where_apply_dropout_in_layers = str(self.dropout_pos) + '_'
+        how_much_dropout_ratio = str(self.dropout_ratio) + '_'
 
-        what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
-        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio'])
+        what_kind_of_model_compression_technologies = self.compression + '_'
+        how_much_pruning_ratio = str(self.pruning_ratio)
 
         save_file_name = what_kind_of_model + \
-                         how_many_stacked_layer + \
-                         how_much_dimension_of_each_layer + \
-                         where_apply_dropout_in_layers + \
-                         how_much_dropout_ratio + \
-                         what_kind_of_model_compression_technologies + \
-                         how_much_pruning_ratio + '.pth'
+                        how_many_stacked_layer + \
+                        how_much_dimension_of_each_layer + \
+                        where_apply_dropout_in_layers + \
+                        how_much_dropout_ratio + \
+                        what_kind_of_model_compression_technologies + \
+                        how_much_pruning_ratio + '.pth'
 
         return save_file_name
     # 패스 만들 때는 os.path.join 을 많이 사용함
@@ -119,9 +136,7 @@ class Trainer():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
-                                     dropout=self.cfg['solver']['dropout'],
-                                     dropout_pos=self.cfg['model']['dropout_pos']).to(self.device)
+            model = ClassifierModule(layer_dim=[784, 98, 10], dropout=0.5, dropout_pos=0).to(self.device)
         else:
             raise NotImplementedError
 

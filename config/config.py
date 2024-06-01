@@ -15,7 +15,10 @@ def get_config_dict():
     )
 
     model = dict(
-        name='linear_network_for_mnist'
+        name='linear_network_for_mnist',
+        type='FCN',
+        layer_dim=[784, 98, 10],
+        dropout_pos=0,
     )
 
     solver = dict(
@@ -24,12 +27,26 @@ def get_config_dict():
         lr0=1e-4,
         momentum=0.937,
         weight_decay=5e-4,
-        max_epoch=10,
+        max_epoch=25,
+        dropout=0.5,
     )
 
     scheduler = dict(
         name='cycliclr'
     )
+
+    compression = dict(
+        type='nothing',
+        #
+        # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
+        # 'quantization+pruning', 'quantization+knowledge_distillation', 'pruning+knowledge_distillation'
+        # 'quantization+pruning+knowledge_distillation'
+        # the default value is 'nothing'
+        #
+        pruning_ratio=0.0,
+    )
+
+
     # Merge all information into a dictionary variable
     config = dict(
         dataset=dataset_info,
@@ -37,6 +54,8 @@ def get_config_dict():
         model=model,
         solver=solver,
         scheduler=scheduler,
+        compression=compression,
     )
 
     return config
+
