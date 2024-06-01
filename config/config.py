@@ -17,8 +17,8 @@ def get_config_dict():
     model = dict(
         name='linear_network_for_mnist',
         type='FCN',
-        layer_dim=[784, 98, 10],
-        dropout_pos=0,
+        layer_dim=[784, 98, 60, 10],
+        dropout_pos=1,          #if the first layer is [784, 98]0,1,2 ...
     )
 
     solver = dict(
@@ -50,7 +50,7 @@ def get_config_dict():
 
     # Merge all information into a dictionary variable
     config = dict(
-        task='test',            #'train' or 'test'
+        task='train',            #'train' or 'test'
         dataset=dataset_info,
         path=path,
         model=model,

@@ -59,6 +59,9 @@ class Trainer():
         # how much pruning ratio ?
         # other hyperparameters in quantization or knowledge distillation
 
+        # ===== consider other hyperparameters =====
+        # how much epoch ?
+
         what_kind_of_model = self.cfg['model']['type'] + '_'
         how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
         how_much_dimension_of_each_layer = ''
@@ -69,7 +72,9 @@ class Trainer():
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
 
         what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
-        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio'])
+        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
+
+        how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
 
         save_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
@@ -77,7 +82,8 @@ class Trainer():
                          where_apply_dropout_in_layers + \
                          how_much_dropout_ratio + \
                          what_kind_of_model_compression_technologies + \
-                         how_much_pruning_ratio + '.pth'
+                         how_much_pruning_ratio + \
+                         how_much_epoch + '.pth'
 
         return save_file_name
     # 패스 만들 때는 os.path.join 을 많이 사용함
@@ -289,6 +295,9 @@ class Tester():
         # how much pruning ratio ?
         # other hyperparameters in quantization or knowledge distillation
 
+        # ===== consider other hyperparameters =====
+        # how much epoch ?
+
         what_kind_of_model = self.cfg['model']['type'] + '_'
         how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
         how_much_dimension_of_each_layer = ''
@@ -299,7 +308,9 @@ class Tester():
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
 
         what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
-        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio'])
+        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
+
+        how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
 
         save_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
@@ -307,10 +318,10 @@ class Tester():
                          where_apply_dropout_in_layers + \
                          how_much_dropout_ratio + \
                          what_kind_of_model_compression_technologies + \
-                         how_much_pruning_ratio + '.pth'
+                         how_much_pruning_ratio + \
+                         how_much_epoch + '.pth'
 
-        return save_file_name
-    # 패스 만들 때는 os.path.join 을 많이 사용함
+        return save_file_name    # 패스 만들 때는 os.path.join 을 많이 사용함
     def make_save_path(self):
         save_path = os.path.join(self.cfg['path']['save_base_path'],
                                  self.cfg['model']['name']) # self.cfg의 ['path']['save_base_path'] 에 self.cfg['model]['name']을 붙임
@@ -385,6 +396,11 @@ class Tester():
     def start_test(self):
         try:
             self.model.eval()
+            text = " Test start "
+            total_width = 50
+            formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+            print(formatted_text)
+
             pbar = tqdm(enumerate(self.val_loader), total=len(self.val_loader))
             #
             pred = []
@@ -426,4 +442,181 @@ class Tester():
         return (true == pred).sum() / true.shape[0]
 
 
-# class Compressor():
+class Compressor():
+    def __init__(self, cfg, device=torch.device('cpu')):
+        self.cfg = cfg
+        self.device = device
+
+        # ===== save config =====
+        self.save_path = self.make_save_path()
+        self.save_file_name = self.make_save_file_name()
+        self.save_dir_name = 'weights' if self.cfg['compression']['compress'] == 'off' else 'compressed_weights'
+
+        # ===== DataLoader ======
+        self.val_loader = self.get_dataloader()
+
+        # ===== Model ======
+        self.model = self.build_model()
+
+        # ===== Parameters ======
+        self.max_epoch = self.cfg['solver']['max_epoch']
+        self.max_stepnum = len(self.val_loader)  # 1 epoch 내에 몇 번을 도는지
+
+    def make_save_file_name(self):
+
+        # ===== consider model layer =====
+        # what kinds of model ?
+        # how many stacked layer ?
+        # how much dimension of each layer ?
+
+        # ===== consider dropout =====
+        # where apply dropout in layers ?
+        # how much dropout ratio ?
+
+        # ===== consider model compression technologies =====
+        # what kind of model compression technologies ?
+        # how much pruning ratio ?
+        # other hyperparameters in quantization or knowledge distillation
+
+        what_kind_of_model = self.cfg['model']['type'] + '_'
+        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
+        how_much_dimension_of_each_layer = ''
+        for dim in self.cfg['model']['layer_dim']:
+            how_much_dimension_of_each_layer += str(dim) + '_'
+
+        where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
+        how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
+
+        what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
+        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio'])
+
+        save_file_name = what_kind_of_model + \
+                         how_many_stacked_layer + \
+                         how_much_dimension_of_each_layer + \
+                         where_apply_dropout_in_layers + \
+                         how_much_dropout_ratio + \
+                         what_kind_of_model_compression_technologies + \
+                         how_much_pruning_ratio + '.pth'
+
+        return save_file_name
+
+    # 패스 만들 때는 os.path.join 을 많이 사용함
+    def make_save_path(self):
+        save_path = os.path.join(self.cfg['path']['save_base_path'],
+                                 self.cfg['model'][
+                                     'name'])  # self.cfg의 ['path']['save_base_path'] 에 self.cfg['model]['name']을 붙임
+        os.makedirs(save_path, exist_ok=True)
+        return save_path
+
+    def build_model(self):
+        model_name = self.cfg['model']['name']
+        if model_name == 'lenet':
+            raise ValueError('LeNet not implemented in ./model')
+            # from model.LeNet import LeNet
+            # model = LeNet().to(self.device)
+        elif model_name == 'alexnet':
+            raise ValueError('AlexNet not implemented in ./model')
+            # from model.AlexNet import AlexNet
+            # model = AlexNet().to(self.device)
+        elif model_name == 'resnet':
+            raise ValueError('ResNet not implemented in ./model')
+            # from model.ResNet import ResNet
+            # model = ResNet().to(self.device)
+        elif model_name == 'linear_network_for_mnist':
+            from model.linear_network import ClassifierModule
+            model = ClassifierModule()
+            print("Load model..")
+            model.load_state_dict(torch.load(self.save_path + '/' + self.save_dir_name + '/' + self.save_file_name))
+            print("Model load success")
+        else:
+            raise NotImplementedError
+
+        print("Check the model's state_dict:")
+        for param_tensor in model.state_dict():
+            print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+
+        return model.to(self.device)
+
+    def get_dataloader(self):
+        if self.cfg['dataset']['name'] == 'wdm':
+            raise ValueError('WDM dataset not exist in ./dataset')
+            # from dataset.wdm import Data_loader
+
+        elif self.cfg['dataset']['name'] == 'mnist':
+            from dataset.mnist import data_loader
+
+        else:
+            raise ValueError('Invalid dataset name,' 'currently supported [wdm]')
+
+        #
+        val_path = self.cfg['dataset']['val_path']
+        batch_size = self.cfg['dataset']['batch_size']
+        num_workers = self.cfg['dataset']['num_workers']
+        height, width = self.cfg['dataset']['height'], self.cfg['dataset']['width']
+        #
+        val_object = data_loader(
+            path=val_path,
+            height=height,
+            width=width,
+            augmentation=True,
+            task='train'
+        )
+
+        #
+        val_loader = DataLoader(
+            val_object,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            collate_fn=data_loader.collate_fn
+        )
+
+        return val_loader
+
+    def start_compression(self):
+        try:
+            self.model.eval()
+            text = " Test start "
+            total_width = 50
+            formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+            print(formatted_text)
+
+            pbar = tqdm(enumerate(self.val_loader), total=len(self.val_loader))
+            #
+            pred = []
+            true = []
+            #
+            # ============= test start =============
+            normal_model_time_start = time.time()
+            for step, batch_data in pbar:
+                imgs = batch_data[0].to(self.device)
+                labels = batch_data[1].to(self.device)
+                #
+                out_net = self.model(imgs)
+
+                #
+                pred.append(out_net.argmax(dim=1))
+                true.append(labels.argmax(dim=1))
+                #
+            normal_model_time_end = time.time()
+            # ============= test end =============
+
+            pred = torch.cat(pred, dim=0)
+            true = torch.cat(true, dim=0)
+
+            acc = self.accuracy(true, pred).detach().cpu()
+
+            text = " acc : {} ".format(acc)
+            total_width = 50
+            formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+            print(formatted_text)
+
+            perf_time_of_normal_model = normal_model_time_end - normal_model_time_start
+            print(f"{perf_time_of_normal_model:.5f} sec\n")
+
+        except:
+            print('ERROR in test ...')
+
+    @staticmethod
+    def accuracy(true, pred):
+        return (true == pred).sum() / true.shape[0]

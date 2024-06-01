@@ -1,0 +1,19 @@
+the meaning of a weight file name is below, sequentially.
+
+
+# ===== consider model layer =====
+# what kinds of model ?
+# how many stacked layer ?
+# how much dimension of each layer ?
+
+# ===== consider dropout =====
+# where apply dropout in layers ?
+# how much dropout ratio ?
+
+# ===== consider model compression technologies =====
+# what kind of model compression technologies ?
+# how much pruning ratio ?
+# other hyperparameters in quantization or knowledge distillation
+
+# ===== consider other hyperparameters =====
+# how much epoch ?
