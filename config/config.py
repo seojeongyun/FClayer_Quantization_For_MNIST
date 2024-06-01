@@ -1,6 +1,6 @@
 def get_config_dict():
     dataset_info = dict(
-        name='wdm',
+        name='mnist',
         train_path='/storage/jysuh/dataset',
         val_path='/storage/jysuh/dataset',
         height=28,
@@ -24,11 +24,11 @@ def get_config_dict():
         lr0=1e-4,
         momentum=0.937,
         weight_decay=5e-4,
-        max_epoch=50,
+        max_epoch=10,
     )
 
     scheduler = dict(
-        name = 'steplr'
+        name='cycliclr'
     )
     # Merge all information into a dictionary variable
     config = dict(

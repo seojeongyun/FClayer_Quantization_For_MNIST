@@ -48,7 +48,7 @@ class Trainer():
         if self.cfg['scheduler']['name'] == 'steplr':
             scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, gamma=0.9, step_size=5)
 
-        if self.cfg['scheduler']['name'] == 'cycliclr':
+        elif self.cfg['scheduler']['name'] == 'cycliclr':
             scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-6, max_lr=1e-4,
                                                          cycle_momentum=False, step_size_up=20, step_size_down=2,
                                                          mode='triangular2')
@@ -79,7 +79,7 @@ class Trainer():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule().to(self.device)
+            model = ClassifierModule(layer_dim=[784, 98, 10], dropout=0.5, dropout_pos=0).to(self.device)
         else:
             raise NotImplementedError
 
@@ -140,7 +140,19 @@ class Trainer():
     def start_train(self):
         try:
             for epoch in range(self.max_epoch):
+                text = " epoch : {} ".format(epoch+1)
+                total_width = 50
+                formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+                print(formatted_text)
+
                 self.train_one_epoch(epoch)
+            print("Model's state_dict:")
+            for param_tensor in self.model.state_dict():
+                print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
+
+            print("Save model...")
+            torch.save(self.model.state_dict(), self.save_path)
+
         except:
             print('ERROR in training loop...')
 
@@ -148,9 +160,12 @@ class Trainer():
     def train_one_epoch(self, epoch):
         pbar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
         #
-        TP = np.zeros(8)
-        FP = np.zeros(8)
-        FN = np.zeros(8)
+        # TP = np.zeros(8)
+        # FP = np.zeros(8)
+        # FN = np.zeros(8)
+        #
+        pred = []
+        true = []
         #
         for step, batch_data in pbar:
             imgs = batch_data[0].to(self.device)
@@ -165,17 +180,33 @@ class Trainer():
             self.optimizer.step()
 
             # Get statistics
-            TP, FP, FN = self.get_statistics(
-                self.model.predict(out_net.detach()), labels,
-                TP, FP, FN
-            )
+            # TP, FP, FN = self.get_statistics(
+            #     self.model.predict(out_net.detach()), labels,
+            #     TP, FP, FN
+            # )
             if step % 2 == 0:
                 write_tbloss(self.tblogger, loss.detach().cpu(),
                              (epoch * self.max_epoch + step))
+            #
+            pred.append(out_net.argmax(dim=1))
+            true.append(labels.argmax(dim=1))
 
-            if step % 200 == 0:
-                write_tbPR(self.tblogger, TP, FP, FN, epoch, 'train')
+            #
+            # if step % 200 == 0:
+            #     write_tbPR(self.tblogger, TP, FP, FN, epoch, 'train')
+
         self.scheduler.step()
+
+        pred = torch.cat(pred, dim=0)
+        true = torch.cat(true, dim=0)
+
+        acc = self.accuracy(true, pred).detach().cpu()
+
+        text = " acc : {} ".format(acc)
+        total_width = 50
+        formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+        print(formatted_text)
+
 
     @staticmethod
     def get_statistics(pred, true, TP, FP, FN):
@@ -189,6 +220,8 @@ class Trainer():
 
         return TP, FP, FN
 
-
+    @staticmethod
+    def accuracy(true, pred):
+        return (true == pred).sum() / true.shape[0]
 
 

@@ -21,25 +21,25 @@ class data_loader(Dataset):
         super().__init__()
         assert task == 'train' or task == 'val' or task == 'test', f'Invalid task...'
         #
-        self.mnist = self.get_mnist(task, path)
-        #
         self.dataset_path = path
         self.task = task
+        #
+        self.mnist = self.get_mnist(task, path)
         #
         self.img_size = (height, width)
         self.augmentation = augmentation
         #
-        self.fn_transform = self.get_transformer()
+        # self.fn_transform = self.get_transformer()
 
-    def get_mnist(self):
-        if self.task is "training":
-            fname_img = os.path.join(self.dataset_path, 'train-images.idx3-ubyte')
-            fname_lbl = os.path.join(self.dataset_path, 'train-labels.idx1-ubyte')
-        elif self.task is "testing":
-            fname_img = os.path.join(self.dataset_path, 't10k-images.idx3-ubyte')
-            fname_lbl = os.path.join(self.dataset_path, 't10k-labels.idx1-ubyte')
+    def get_mnist(self, task, path):
+        if task is "train":
+            fname_img = os.path.join(path, 'train-images.idx3-ubyte')
+            fname_lbl = os.path.join(path, 'train-labels.idx1-ubyte')
+        elif task is "test":
+            fname_img = os.path.join(path, 't10k-images.idx3-ubyte')
+            fname_lbl = os.path.join(path, 't10k-labels.idx1-ubyte')
         else:
-            raise ValueError("dataset must be 'testing' or 'training'")
+            raise ValueError("dataset must be 'train' or 'test'")
 
         # Load everything in some numpy arrays
         with open(fname_lbl, 'rb') as flbl:
@@ -63,6 +63,8 @@ class data_loader(Dataset):
 
     def __getitem__(self, index):
         img = torch.tensor(self.mnist[index][1]) / 255.
+        img = torch.flatten(img)
+        img = torch.unsqueeze(img, dim=0)
         label = self.mnist[index][0]
 
         return img, label
@@ -83,7 +85,7 @@ class data_loader(Dataset):
         #
         #
         inputs = torch.cat(inputs, dim=0)
-        labels = torch.cat(labels, dim=0)
+        labels = torch.tensor(labels)
         labels = data_loader.make_one_hot_vec(labels)
         #
         return inputs, labels

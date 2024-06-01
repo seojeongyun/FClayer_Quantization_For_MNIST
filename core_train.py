@@ -6,7 +6,9 @@ if __name__ == '__main__':
     config = get_config_dict()
 
     # Get Trainer
-    trainer = Trainer(config)
+    import torch
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    trainer = Trainer(config, device)
 
     # Start train
     trainer.start_train()
