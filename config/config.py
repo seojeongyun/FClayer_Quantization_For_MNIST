@@ -50,6 +50,7 @@ def get_config_dict():
 
     # Merge all information into a dictionary variable
     config = dict(
+        task='test',            #'train' or 'test'
         dataset=dataset_info,
         path=path,
         model=model,

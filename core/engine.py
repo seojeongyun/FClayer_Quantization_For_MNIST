@@ -1,10 +1,12 @@
 from torch.utils.tensorboard import SummaryWriter
 from utils.events import write_tbimg, write_tbloss, write_tbPR
 from tqdm import tqdm
+
 import time
 import os
 import torch
 import numpy as np
+import time
 
 from torch.utils.data import DataLoader
 
@@ -16,13 +18,14 @@ class Trainer():
 
         # ===== save config =====
         self.save_path = self.make_save_path()
-        self.save_file_path = self.make_save_file_path()
+        self.save_file_name = self.make_save_file_name()
+        self.save_dir_name = 'weights' if self.cfg['compression']['compress'] == 'off' else 'compressed_weights'
 
         # ===== TensorBoard =====
         self.tblogger = SummaryWriter(self.save_path)
 
         # ===== DataLoader ======
-        self.train_loader, self.val_loader = self.get_dataloader()
+        self.train_loader = self.get_dataloader()
 
         # ===== Model ======
         self.model = self.build_model()
@@ -40,7 +43,7 @@ class Trainer():
         self.max_epoch = self.cfg['solver']['max_epoch']
         self.max_stepnum = len(self.train_loader) # 1 epoch 내에 몇 번을 도는지
 
-    def make_save_file_path(self):
+    def make_save_file_name(self):
 
         # ===== consider model layer =====
         # what kinds of model ?
@@ -68,7 +71,7 @@ class Trainer():
         what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio'])
 
-        save_file_path = what_kind_of_model + \
+        save_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
                          how_much_dimension_of_each_layer + \
                          where_apply_dropout_in_layers + \
@@ -76,7 +79,7 @@ class Trainer():
                          what_kind_of_model_compression_technologies + \
                          how_much_pruning_ratio + '.pth'
 
-        return save_file_path
+        return save_file_name
     # 패스 만들 때는 os.path.join 을 많이 사용함
     def make_save_path(self):
         save_path = os.path.join(self.cfg['path']['save_base_path'],
@@ -139,7 +142,6 @@ class Trainer():
 
         #
         train_path = self.cfg['dataset']['train_path']
-        val_path = self.cfg['dataset']['val_path']
         batch_size = self.cfg['dataset']['batch_size']
         num_workers = self.cfg['dataset']['num_workers']
         height, width = self.cfg['dataset']['height'], self.cfg['dataset']['width']
@@ -161,23 +163,7 @@ class Trainer():
             collate_fn=data_loader.collate_fn
         )
 
-        val_object = data_loader(
-            path=val_path,
-            height=height,
-            width=width,
-            augmentation=True,
-            task='train'
-        )
-        #
-        val_loader = DataLoader(
-            val_object,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=num_workers,
-            collate_fn=data_loader.collate_fn
-        )
-
-        return train_loader, val_loader
+        return train_loader
 
     def start_train(self):
         try:
@@ -193,8 +179,7 @@ class Trainer():
                 print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
 
             print("Save model...")
-            save_dir_name = 'weights' if self.cfg['compression']['compress'] == 'off' else 'compressed_weights'
-            torch.save(self.model.state_dict(), self.save_path + '/' + save_dir_name + '/' + self.save_file_name)
+            torch.save(self.model.state_dict(), self.save_path + '/' + self.save_dir_name + '/' + self.save_file_name)
 
         except:
             print('ERROR in training loop...')
@@ -275,19 +260,20 @@ class Tester():
 
         # ===== save config =====
         self.save_path = self.make_save_path()
-        self.save_file_path = self.make_save_file_path()
+        self.save_file_name = self.make_save_file_name()
+        self.save_dir_name = 'weights' if self.cfg['compression']['compress'] == 'off' else 'compressed_weights'
 
         # ===== DataLoader ======
-        self.train_loader, self.val_loader = self.get_dataloader()
+        self.val_loader = self.get_dataloader()
 
         # ===== Model ======
         self.model = self.build_model()
 
         # ===== Parameters ======
         self.max_epoch = self.cfg['solver']['max_epoch']
-        self.max_stepnum = len(self.train_loader) # 1 epoch 내에 몇 번을 도는지
+        self.max_stepnum = len(self.val_loader) # 1 epoch 내에 몇 번을 도는지
 
-    def make_save_file_path(self):
+    def make_save_file_name(self):
 
         # ===== consider model layer =====
         # what kinds of model ?
@@ -315,7 +301,7 @@ class Tester():
         what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio'])
 
-        save_file_path = what_kind_of_model + \
+        save_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
                          how_much_dimension_of_each_layer + \
                          where_apply_dropout_in_layers + \
@@ -323,7 +309,7 @@ class Tester():
                          what_kind_of_model_compression_technologies + \
                          how_much_pruning_ratio + '.pth'
 
-        return save_file_path
+        return save_file_name
     # 패스 만들 때는 os.path.join 을 많이 사용함
     def make_save_path(self):
         save_path = os.path.join(self.cfg['path']['save_base_path'],
@@ -348,15 +334,18 @@ class Tester():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
-                                     dropout=self.cfg['solver']['dropout'],
-                                     dropout_pos=self.cfg['model']['dropout_pos']).to(self.device)
+            model = ClassifierModule()
+            print("Load model..")
+            model.load_state_dict(torch.load(self.save_path + '/' + self.save_dir_name + '/' + self.save_file_name))
+            print("Model load success")
         else:
             raise NotImplementedError
 
-        model.load_state_dict(torch.load(self.save_file_path))
+        print("Check the model's state_dict:")
+        for param_tensor in model.state_dict():
+            print(param_tensor, "\t", model.state_dict()[param_tensor].size())
 
-        return model
+        return model.to(self.device)
     def get_dataloader(self):
         if self.cfg['dataset']['name'] == 'wdm':
             raise ValueError('WDM dataset not exist in ./dataset')
@@ -369,29 +358,11 @@ class Tester():
             raise ValueError('Invalid dataset name,' 'currently supported [wdm]')
 
         #
-        train_path = self.cfg['dataset']['train_path']
         val_path = self.cfg['dataset']['val_path']
         batch_size = self.cfg['dataset']['batch_size']
         num_workers = self.cfg['dataset']['num_workers']
         height, width = self.cfg['dataset']['height'], self.cfg['dataset']['width']
         #
-
-        train_object = data_loader(
-            path=train_path,
-            height=height,
-            width=width,
-            augmentation=True,
-            task='train'
-        )
-        #
-        train_loader = DataLoader(
-            train_object,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=num_workers,
-            collate_fn=data_loader.collate_fn
-        )
-
         val_object = data_loader(
             path=val_path,
             height=height,
@@ -399,6 +370,7 @@ class Tester():
             augmentation=True,
             task='train'
         )
+
         #
         val_loader = DataLoader(
             val_object,
@@ -408,92 +380,50 @@ class Tester():
             collate_fn=data_loader.collate_fn
         )
 
-        return train_loader, val_loader
+        return val_loader
 
-    def start_train(self):
+    def start_test(self):
         try:
-            for epoch in range(self.max_epoch):
-                text = " epoch : {} ".format(epoch+1)
-                total_width = 50
-                formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
-                print(formatted_text)
+            self.model.eval()
+            pbar = tqdm(enumerate(self.val_loader), total=len(self.val_loader))
+            #
+            pred = []
+            true = []
+            #
+            # ============= test start =============
+            normal_model_time_start = time.time()
+            for step, batch_data in pbar:
+                imgs = batch_data[0].to(self.device)
+                labels = batch_data[1].to(self.device)
+                #
+                out_net = self.model(imgs)
 
-                self.train_one_epoch(epoch)
-            print("Model's state_dict:")
-            for param_tensor in self.model.state_dict():
-                print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
+                #
+                pred.append(out_net.argmax(dim=1))
+                true.append(labels.argmax(dim=1))
+                #
+            normal_model_time_end = time.time()
+            # ============= test end =============
 
-            print("Save model...")
-            torch.save(self.model.state_dict(), self.save_path + '/weights/' + self.save_file_name)
+            pred = torch.cat(pred, dim=0)
+            true = torch.cat(true, dim=0)
+
+            acc = self.accuracy(true, pred).detach().cpu()
+
+            text = " acc : {} ".format(acc)
+            total_width = 50
+            formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+            print(formatted_text)
+
+            perf_time_of_normal_model = normal_model_time_end - normal_model_time_start
+            print(f"{perf_time_of_normal_model:.5f} sec\n")
 
         except:
-            print('ERROR in training loop...')
-
-
-    def train_one_epoch(self, epoch):
-        pbar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
-        #
-        # TP = np.zeros(8)
-        # FP = np.zeros(8)
-        # FN = np.zeros(8)
-        #
-        pred = []
-        true = []
-        #
-        for step, batch_data in pbar:
-            imgs = batch_data[0].to(self.device)
-            labels = batch_data[1].to(self.device)
-            #
-            out_net = self.model(imgs)
-            # Calculate Loss
-            loss = self.compute_loss(out_net, labels.float())
-            # Update
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-
-            # Get statistics
-            # TP, FP, FN = self.get_statistics(
-            #     self.model.predict(out_net.detach()), labels,
-            #     TP, FP, FN
-            # )
-            if step % 2 == 0:
-                write_tbloss(self.tblogger, loss.detach().cpu(),
-                             (epoch * self.max_epoch + step))
-            #
-            pred.append(out_net.argmax(dim=1))
-            true.append(labels.argmax(dim=1))
-
-            #
-            # if step % 200 == 0:
-            #     write_tbPR(self.tblogger, TP, FP, FN, epoch, 'train')
-
-        self.scheduler.step()
-
-        pred = torch.cat(pred, dim=0)
-        true = torch.cat(true, dim=0)
-
-        acc = self.accuracy(true, pred).detach().cpu()
-
-        text = " acc : {} ".format(acc)
-        total_width = 50
-        formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
-        print(formatted_text)
-
-
-    @staticmethod
-    def get_statistics(pred, true, TP, FP, FN):
-        for defect_idx in range(pred.shape[1]):
-            pred_per_defect = pred[:, defect_idx].cpu().detach().numpy()
-            true_per_defect = true[:, defect_idx].cpu().detach().numpy()
-
-            TP[defect_idx] += np.sum(pred_per_defect * true_per_defect)
-            FP[defect_idx] += np.sum(pred_per_defect * (1 - true_per_defect))
-            FN[defect_idx] += np.sum((1 - pred_per_defect) * true_per_defect)
-
-        return TP, FP, FN
+            print('ERROR in test ...')
 
     @staticmethod
     def accuracy(true, pred):
         return (true == pred).sum() / true.shape[0]
+
+
 # class Compressor():
