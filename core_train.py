@@ -1,14 +1,25 @@
+import torch
+
 from config.config import get_config_dict
 from core.engine import Trainer
-
+from core.engine import Compressor
 if __name__ == '__main__':
+    from setproctitle import *
+    setproctitle('FCN_model_compression')
+
     # Get configuration
     config = get_config_dict()
 
-    # Get Trainer
-    import torch
+    # Get device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    trainer = Trainer(config, device)
 
-    # Start train
-    trainer.start_train()
+    # train or compress
+    if config['compression']['compress'] == 'off':
+        trainer = Trainer(config, device)
+        trainer.start_train()
+
+    elif config['compression']['compress'] == 'on':
+        compressor = Compressor(config, device)
+        compressor.start_compress()
+
+

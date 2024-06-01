@@ -8,28 +8,11 @@ import numpy as np
 
 from torch.utils.data import DataLoader
 
-class Trainer():
-    def __init__(self, cfg, device=torch.device('cpu'),
-                 model_type='FCN', compression='nothing', pruning_ratio=0.0,
-                 layer_dim=[784, 98, 10], dropout=0.5, dropout_pos=0):
+
+class Compressor():
+    def __init__(self, cfg, device=torch.device('cpu')):
         self.cfg = cfg
         self.device = device
-
-        # ===== model compression config =====
-        self.model_type = cfg['model']['type']            # FCN or CNN
-        self.compression = compression          # the combinations of model compression technologies
-        #
-        # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
-        # 'quantization+pruning', 'quantization+knowledge_distillation', 'pruning+knowledge_distillation'
-        # 'quantization+pruning+knowledge_distillation'
-        # the default value is 'nothing'
-        #
-        self.pruning_ratio = pruning_ratio
-
-        # ===== model config =====
-        self.layer_dim = layer_dim
-        self.dropout_pos = dropout_pos
-        self.dropout_ratio = dropout
 
         # ===== save config =====
         self.save_path = self.make_save_path()
@@ -44,21 +27,12 @@ class Trainer():
         # ===== Model ======
         self.model = self.build_model()
 
-        # ===== Optimizeer ======
-        self.optimizer = self.build_optimizer()
-
-        # ===== Scheduler ======
-        self.scheduler = self.build_scheduler(self.optimizer)
-
-        # ===== Loss ======
-        self.compute_loss = self.set_criterion()
-
         # ===== Parameters ======
         self.max_epoch = self.cfg['solver']['max_epoch']
         self.max_stepnum = len(self.train_loader) # 1 epoch 내에 몇 번을 도는지
 
-
     def make_save_file_name(self):
+
         # ===== consider model layer =====
         # what kinds of model ?
         # how many stacked layer ?
@@ -71,27 +45,27 @@ class Trainer():
         # ===== consider model compression technologies =====
         # what kind of model compression technologies ?
         # how much pruning ratio ?
-        # other hyper parameter in quantization or knowledge distillation
+        # other hyperparameters in quantization or knowledge distillation
 
-        what_kind_of_model = self.model_type + '_'
-        how_many_stacked_layer = str(len(self.layer_dim)-1) + '_'
+        what_kind_of_model = self.cfg['model']['type'] + '_'
+        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
         how_much_dimension_of_each_layer = ''
-        for dim in self.layer_dim:
+        for dim in self.cfg['model']['layer_dim']:
             how_much_dimension_of_each_layer += str(dim) + '_'
 
-        where_apply_dropout_in_layers = str(self.dropout_pos) + '_'
-        how_much_dropout_ratio = str(self.dropout_ratio) + '_'
+        where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
+        how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
 
-        what_kind_of_model_compression_technologies = self.compression + '_'
-        how_much_pruning_ratio = str(self.pruning_ratio)
+        what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
+        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio'])
 
         save_file_name = what_kind_of_model + \
-                        how_many_stacked_layer + \
-                        how_much_dimension_of_each_layer + \
-                        where_apply_dropout_in_layers + \
-                        how_much_dropout_ratio + \
-                        what_kind_of_model_compression_technologies + \
-                        how_much_pruning_ratio + '.pth'
+                         how_many_stacked_layer + \
+                         how_much_dimension_of_each_layer + \
+                         where_apply_dropout_in_layers + \
+                         how_much_dropout_ratio + \
+                         what_kind_of_model_compression_technologies + \
+                         how_much_pruning_ratio + '.pth'
 
         return save_file_name
     # 패스 만들 때는 os.path.join 을 많이 사용함
@@ -101,24 +75,9 @@ class Trainer():
         os.makedirs(save_path, exist_ok=True)
         return save_path
 
-    def build_scheduler(self, optimizer):
-        if self.cfg['scheduler']['name'] == 'steplr':
-            scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, gamma=0.9, step_size=5)
 
-        elif self.cfg['scheduler']['name'] == 'cycliclr':
-            scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-6, max_lr=1e-4,
-                                                         cycle_momentum=False, step_size_up=20, step_size_down=2,
-                                                         mode='triangular2')
-        else:
-            raise NotImplementedError
-        return scheduler
 
-    def set_criterion(self):
-        return torch.nn.BCEWithLogitsLoss(reduction='sum').to(self.device)
 
-    def build_optimizer(self):
-        from solver.fn_optimizer import build_optimizer
-        return build_optimizer(self.cfg, self.model)
 
     def build_model(self):
         model_name = self.cfg['model']['name']
@@ -136,7 +95,9 @@ class Trainer():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule(layer_dim=[784, 98, 10], dropout=0.5, dropout_pos=0).to(self.device)
+            model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
+                                     dropout=self.cfg['solver']['dropout'],
+                                     dropout_pos=self.cfg['model']['dropout_pos']).to(self.device)
         else:
             raise NotImplementedError
 
@@ -208,7 +169,7 @@ class Trainer():
                 print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
 
             print("Save model...")
-            torch.save(self.model.state_dict(), self.save_path + '/weights/' + self.save_file_name)
+            torch.save(self.model.state_dict(), self.save_path + '/compressed_weights/' + self.save_file_name)
 
         except:
             print('ERROR in training loop...')

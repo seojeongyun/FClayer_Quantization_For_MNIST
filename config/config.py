@@ -6,7 +6,7 @@ def get_config_dict():
         height=28,
         width=28,
         channel=1,
-        batch_size=10,
+        batch_size=50,
         num_workers=0,
     )
 
@@ -27,7 +27,7 @@ def get_config_dict():
         lr0=1e-4,
         momentum=0.937,
         weight_decay=5e-4,
-        max_epoch=25,
+        max_epoch=30,
         dropout=0.5,
     )
 
@@ -36,6 +36,7 @@ def get_config_dict():
     )
 
     compression = dict(
+        compress='off', # on or off
         type='nothing',
         #
         # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
