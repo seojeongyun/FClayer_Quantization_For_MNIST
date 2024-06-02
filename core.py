@@ -22,8 +22,8 @@ if __name__ == '__main__':
             tester = Tester(config, device)
             tester.start_test()
 
-    # elif config['compression']['compress'] == 'on':
-    #     compressor = Compressor(config, device)
-    #     compressor.start_compress()
+    elif config['compression']['compress'] == 'on':
+        compressor = Compressor(config, device)
+        compressor.start_compress()
 
 

@@ -321,7 +321,8 @@ class Tester():
                          how_much_pruning_ratio + \
                          how_much_epoch + '.pth'
 
-        return save_file_name    # 패스 만들 때는 os.path.join 을 많이 사용함
+        return save_file_name
+
     def make_save_path(self):
         save_path = os.path.join(self.cfg['path']['save_base_path'],
                                  self.cfg['model']['name']) # self.cfg의 ['path']['save_base_path'] 에 self.cfg['model]['name']을 붙임
@@ -478,6 +479,9 @@ class Compressor():
         # how much pruning ratio ?
         # other hyperparameters in quantization or knowledge distillation
 
+        # ===== consider other hyperparameters =====
+        # how much epoch ?
+
         what_kind_of_model = self.cfg['model']['type'] + '_'
         how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
         how_much_dimension_of_each_layer = ''
@@ -488,7 +492,9 @@ class Compressor():
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
 
         what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
-        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio'])
+        how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
+
+        how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
 
         save_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
@@ -496,11 +502,13 @@ class Compressor():
                          where_apply_dropout_in_layers + \
                          how_much_dropout_ratio + \
                          what_kind_of_model_compression_technologies + \
-                         how_much_pruning_ratio + '.pth'
+                         how_much_pruning_ratio + \
+                         how_much_epoch + '.pth'
 
         return save_file_name
 
-    # 패스 만들 때는 os.path.join 을 많이 사용함
+
+        # 패스 만들 때는 os.path.join 을 많이 사용함
     def make_save_path(self):
         save_path = os.path.join(self.cfg['path']['save_base_path'],
                                  self.cfg['model'][
@@ -573,8 +581,39 @@ class Compressor():
 
         return val_loader
 
+    def prune(self):
+        import torch.nn.utils.prune as prune
+        if self.save_file_name.split('_')[0] == 'FCN':
+            weight = []
+            bias = []
+
+            for param_tensor in self.model.state_dict():
+                if param_tensor.split('.')[2] == 'weight':
+                    weight.append('.'.join(param_tensor.split('.')[:2]) + '.weight')
+                elif param_tensor.split('.')[2] == 'bias':
+                    bias.append('.'.join(param_tensor.split('.')[:2]) + '.bias')
+                else:
+                    raise NotImplementedError
+
+            print("weight list", weight)
+            print("bias list", bias)
+
+
+
+
+            parameters_to_prune = (
+                (self.model.hidden, 'weight'),
+                (self.model.output, 'weight'),
+            )
+
+            prune.global_unstructured(
+                parameters_to_prune,
+                pruning_method=prune.L1Unstructured,
+                amount=0.5,
+            )
     def start_compression(self):
         try:
+
             self.model.eval()
             text = " Test start "
             total_width = 50
