@@ -17,12 +17,12 @@ class Trainer():
         self.device = device
 
         # ===== save config =====
-        self.save_path = self.make_save_path()
-        self.save_file_name = self.make_save_file_name()
-        self.save_dir_name = 'weights' if self.cfg['compression']['compress'] == 'off' else 'compressed_weights'
+        self.base_path = self.make_base_path()
+        self.weight_file_name = self.weight_file_name()
+        self.save_dir_name = 'weights'
 
-        # ===== TensorBoard =====
-        self.tblogger = SummaryWriter(self.save_path)
+        # # ===== TensorBoard =====
+        # self.tblogger = SummaryWriter(self.save_path)
 
         # ===== DataLoader ======
         self.train_loader = self.get_dataloader()
@@ -43,7 +43,7 @@ class Trainer():
         self.max_epoch = self.cfg['solver']['max_epoch']
         self.max_stepnum = len(self.train_loader) # 1 epoch 내에 몇 번을 도는지
 
-    def make_save_file_name(self):
+    def weight_file_name(self):
 
         # ===== consider model layer =====
         # what kinds of model ?
@@ -61,6 +61,7 @@ class Trainer():
 
         # ===== consider other hyperparameters =====
         # how much epoch ?
+        # how much batch_size ?
 
         what_kind_of_model = self.cfg['model']['type'] + '_'
         how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
@@ -75,23 +76,24 @@ class Trainer():
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
-
-        save_file_name = what_kind_of_model + \
+        how_much_batch_size = str(self.cfg['dataset']['batch_size'])
+        weight_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
                          how_much_dimension_of_each_layer + \
                          where_apply_dropout_in_layers + \
                          how_much_dropout_ratio + \
                          what_kind_of_model_compression_technologies + \
                          how_much_pruning_ratio + \
-                         how_much_epoch + '.pth'
+                         how_much_epoch + \
+                         how_much_batch_size + '.pth'
 
-        return save_file_name
+        return weight_file_name
     # 패스 만들 때는 os.path.join 을 많이 사용함
-    def make_save_path(self):
-        save_path = os.path.join(self.cfg['path']['save_base_path'],
+    def make_base_path(self):
+        base_path = os.path.join(self.cfg['path']['save_base_path'],
                                  self.cfg['model']['name']) # self.cfg의 ['path']['save_base_path'] 에 self.cfg['model]['name']을 붙임
-        os.makedirs(save_path, exist_ok=True)
-        return save_path
+        os.makedirs(base_path, exist_ok=True)
+        return base_path
 
     def build_scheduler(self, optimizer):
         if self.cfg['scheduler']['name'] == 'steplr':
@@ -185,7 +187,7 @@ class Trainer():
                 print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
 
             print("Save model...")
-            torch.save(self.model.state_dict(), self.save_path + '/' + self.save_dir_name + '/' + self.save_file_name)
+            torch.save(self.model.state_dict(), self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
 
         except:
             print('ERROR in training loop...')
@@ -213,14 +215,6 @@ class Trainer():
             loss.backward()
             self.optimizer.step()
 
-            # Get statistics
-            # TP, FP, FN = self.get_statistics(
-            #     self.model.predict(out_net.detach()), labels,
-            #     TP, FP, FN
-            # )
-            if step % 2 == 0:
-                write_tbloss(self.tblogger, loss.detach().cpu(),
-                             (epoch * self.max_epoch + step))
             #
             pred.append(out_net.argmax(dim=1))
             true.append(labels.argmax(dim=1))
@@ -265,9 +259,9 @@ class Tester():
         self.device = device
 
         # ===== save config =====
-        self.save_path = self.make_save_path()
-        self.save_file_name = self.make_save_file_name()
-        self.save_dir_name = 'weights' if self.cfg['compression']['compress'] == 'off' else 'compressed_weights'
+        self.base_path = self.make_base_path()
+        self.weight_file_name = self.weight_file_name()
+        self.load_dir_name = 'weights'
 
         # ===== DataLoader ======
         self.val_loader = self.get_dataloader()
@@ -279,7 +273,7 @@ class Tester():
         self.max_epoch = self.cfg['solver']['max_epoch']
         self.max_stepnum = len(self.val_loader) # 1 epoch 내에 몇 번을 도는지
 
-    def make_save_file_name(self):
+    def weight_file_name(self):
 
         # ===== consider model layer =====
         # what kinds of model ?
@@ -297,6 +291,7 @@ class Tester():
 
         # ===== consider other hyperparameters =====
         # how much epoch ?
+        # how much batch_size ?
 
         what_kind_of_model = self.cfg['model']['type'] + '_'
         how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
@@ -311,23 +306,24 @@ class Tester():
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
-
-        save_file_name = what_kind_of_model + \
+        how_much_batch_size = str(self.cfg['dataset']['batch_size'])
+        weight_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
                          how_much_dimension_of_each_layer + \
                          where_apply_dropout_in_layers + \
                          how_much_dropout_ratio + \
                          what_kind_of_model_compression_technologies + \
                          how_much_pruning_ratio + \
-                         how_much_epoch + '.pth'
+                         how_much_epoch + \
+                         how_much_batch_size + '.pth'
 
-        return save_file_name
-
-    def make_save_path(self):
-        save_path = os.path.join(self.cfg['path']['save_base_path'],
+        return weight_file_name
+    # 패스 만들 때는 os.path.join 을 많이 사용함
+    def make_base_path(self):
+        base_path = os.path.join(self.cfg['path']['save_base_path'],
                                  self.cfg['model']['name']) # self.cfg의 ['path']['save_base_path'] 에 self.cfg['model]['name']을 붙임
-        os.makedirs(save_path, exist_ok=True)
-        return save_path
+        os.makedirs(base_path, exist_ok=True)
+        return base_path
 
 
     def build_model(self):
@@ -346,9 +342,9 @@ class Tester():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule()
+            model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'])
             print("Load model..")
-            model.load_state_dict(torch.load(self.save_path + '/' + self.save_dir_name + '/' + self.save_file_name))
+            model.load_state_dict(torch.load(self.base_path + '/' + self.load_dir_name + '/' + self.weight_file_name))
             print("Model load success")
         else:
             raise NotImplementedError
@@ -358,6 +354,7 @@ class Tester():
             print(param_tensor, "\t", model.state_dict()[param_tensor].size())
 
         return model.to(self.device)
+
     def get_dataloader(self):
         if self.cfg['dataset']['name'] == 'wdm':
             raise ValueError('WDM dataset not exist in ./dataset')
@@ -380,7 +377,7 @@ class Tester():
             height=height,
             width=width,
             augmentation=True,
-            task='train'
+            task='test'
         )
 
         #
@@ -448,10 +445,15 @@ class Compressor():
         self.cfg = cfg
         self.device = device
 
-        # ===== save config =====
-        self.save_path = self.make_save_path()
-        self.save_file_name = self.make_save_file_name()
-        self.save_dir_name = 'weights' if self.cfg['compression']['compress'] == 'off' else 'compressed_weights'
+
+        # ===== load and save config =====
+        self.base_path = self.make_base_path()
+        #
+        self.weight_file_name = self.weight_file_name()
+        #
+        self.load_dir_name = 'weights'
+        self.save_dir_name = 'compressed_weights'
+
 
         # ===== DataLoader ======
         self.val_loader = self.get_dataloader()
@@ -463,7 +465,7 @@ class Compressor():
         self.max_epoch = self.cfg['solver']['max_epoch']
         self.max_stepnum = len(self.val_loader)  # 1 epoch 내에 몇 번을 도는지
 
-    def make_save_file_name(self):
+    def weight_file_name(self):
 
         # ===== consider model layer =====
         # what kinds of model ?
@@ -495,26 +497,27 @@ class Compressor():
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
+        how_much_batch_size = str(self.cfg['dataset']['batch_size'])
 
-        save_file_name = what_kind_of_model + \
+        weight_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
                          how_much_dimension_of_each_layer + \
                          where_apply_dropout_in_layers + \
                          how_much_dropout_ratio + \
                          what_kind_of_model_compression_technologies + \
                          how_much_pruning_ratio + \
-                         how_much_epoch + '.pth'
+                         how_much_epoch + \
+                         how_much_batch_size + '.pth'
 
-        return save_file_name
+        return weight_file_name
 
 
         # 패스 만들 때는 os.path.join 을 많이 사용함
-    def make_save_path(self):
-        save_path = os.path.join(self.cfg['path']['save_base_path'],
-                                 self.cfg['model'][
-                                     'name'])  # self.cfg의 ['path']['save_base_path'] 에 self.cfg['model]['name']을 붙임
-        os.makedirs(save_path, exist_ok=True)
-        return save_path
+    def make_base_path(self):
+        base_path = os.path.join(self.cfg['path']['save_base_path'],
+                                 self.cfg['model'][ 'name'])  # self.cfg의 ['path']['save_base_path'] 에 self.cfg['model]['name']을 붙임
+        os.makedirs(base_path, exist_ok=True)
+        return base_path
 
     def build_model(self):
         model_name = self.cfg['model']['name']
@@ -532,9 +535,9 @@ class Compressor():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule()
+            model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'])
             print("Load model..")
-            model.load_state_dict(torch.load(self.save_path + '/' + self.save_dir_name + '/' + self.save_file_name))
+            model.load_state_dict(torch.load(self.base_path + '/' + self.load_dir_name + '/' + self.weight_file_name))
             print("Model load success")
         else:
             raise NotImplementedError
@@ -567,7 +570,7 @@ class Compressor():
             height=height,
             width=width,
             augmentation=True,
-            task='train'
+            task='test'
         )
 
         #
@@ -583,38 +586,40 @@ class Compressor():
 
     def prune(self):
         import torch.nn.utils.prune as prune
-        if self.save_file_name.split('_')[0] == 'FCN':
-            weight = []
-            bias = []
-
-            for param_tensor in self.model.state_dict():
-                if param_tensor.split('.')[2] == 'weight':
-                    weight.append('.'.join(param_tensor.split('.')[:2]) + '.weight')
-                elif param_tensor.split('.')[2] == 'bias':
-                    bias.append('.'.join(param_tensor.split('.')[:2]) + '.bias')
-                else:
-                    raise NotImplementedError
-
-            print("weight list", weight)
-            print("bias list", bias)
-
-
-
-
-            parameters_to_prune = (
-                (self.model.hidden, 'weight'),
-                (self.model.output, 'weight'),
-            )
-
+        if self.weight_file_name.split('_')[0] == 'FCN':
+            layers_parameters = []
+            #
+            for module in self.model.named_modules():
+                if 'layers' in module[0] and not isinstance(module[1], torch.nn.ModuleList):
+                    layers_parameters.append((module[1], 'weight'))
+            #
+            parameters_to_prune = tuple(layers_parameters)
+            #
             prune.global_unstructured(
                 parameters_to_prune,
                 pruning_method=prune.L1Unstructured,
                 amount=0.5,
             )
-    def start_compression(self):
-        try:
 
+            # for _, bias in enumerate(parameters_to_prune):
+            #     prune.ln_structured(bias[0], name="bias",
+            #                         amount=self.cfg['compression']['pruning_ratio'],
+            #                         n=2,
+            #                         dim=0)
+            #
+            # # for _, bias in enumerate(parameters_to_prune):
+            # #     prune.ln_structured(torch.unsqueeze(bias[0].bias, dim=1), name="bias",
+            # #                         amount=self.cfg['compression']['pruning_ratio'],
+            # #                         n=2,
+            # #                         dim=0)
+        elif self.weight_file_name.split('_')[0] == 'CNN':
+            raise NotImplementedError
+
+    def start_compress(self):
+        try:
+            self.prune()
             self.model.eval()
+
             text = " Test start "
             total_width = 50
             formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
@@ -626,7 +631,7 @@ class Compressor():
             true = []
             #
             # ============= test start =============
-            normal_model_time_start = time.time()
+            compressed_model_time_start = time.time()
             for step, batch_data in pbar:
                 imgs = batch_data[0].to(self.device)
                 labels = batch_data[1].to(self.device)
@@ -637,7 +642,7 @@ class Compressor():
                 pred.append(out_net.argmax(dim=1))
                 true.append(labels.argmax(dim=1))
                 #
-            normal_model_time_end = time.time()
+            compressed_model_time_end = time.time()
             # ============= test end =============
 
             pred = torch.cat(pred, dim=0)
@@ -650,8 +655,11 @@ class Compressor():
             formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
             print(formatted_text)
 
-            perf_time_of_normal_model = normal_model_time_end - normal_model_time_start
+            perf_time_of_normal_model = compressed_model_time_end - compressed_model_time_start
             print(f"{perf_time_of_normal_model:.5f} sec\n")
+
+            print("Save model...")
+            torch.save(self.model.state_dict(), self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
 
         except:
             print('ERROR in test ...')

@@ -17,7 +17,7 @@ def get_config_dict():
     model = dict(
         name='linear_network_for_mnist',
         type='FCN',
-        layer_dim=[784, 98, 10],
+        layer_dim=[784, 98, 60, 10],
         dropout_pos=0,          #if the first layer is [784, 98]0,1,2 ...
     )
 
@@ -28,7 +28,7 @@ def get_config_dict():
         momentum=0.937,
         weight_decay=5e-4,
         max_epoch=30,
-        dropout=0.5,
+        dropout=0.2,
     )
 
     scheduler = dict(
@@ -36,21 +36,20 @@ def get_config_dict():
     )
 
     compression = dict(
-        compress='on', # on or off
-        type='nothing',
+        type='train',
         #
         # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
         # 'quantization+pruning', 'quantization+knowledge_distillation', 'pruning+knowledge_distillation'
         # 'quantization+pruning+knowledge_distillation'
         # the default value is 'nothing'
         #
-        pruning_ratio=0.0,
+        pruning_ratio=0.5,
     )
 
 
     # Merge all information into a dictionary variable
     config = dict(
-        task='train',            # the task has only validity ,if cfg['compression']['compress'] == on / 'train' or 'test'
+        task='compress',            # 'train' or 'test' or 'compress'
         dataset=dataset_info,
         path=path,
         model=model,
@@ -61,3 +60,5 @@ def get_config_dict():
 
     return config
 
+#       acc      : dropout = 0.2 / pruning = 0.5 > dropout = 0.5 and pruning = 0.5
+# inference time : normal model is faster than pruned model in pruning_ratio = 0.5
