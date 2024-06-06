@@ -9,7 +9,7 @@ import numpy as np
 import time
 
 from torch.utils.data import DataLoader
-
+from model.linear_network import ClassifierModule
 
 class Trainer():
     def __init__(self, cfg, device=torch.device('cpu')):
@@ -495,6 +495,8 @@ class Compressor():
 
         what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
+        what_is_pruning_type = str(self.cfg['compression']['pruning_type']) + '_'
+        value_of_ln_structured = str(self.cfg['compression']['pruning_n']) + '_'
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
         how_much_batch_size = str(self.cfg['dataset']['batch_size'])
@@ -586,34 +588,87 @@ class Compressor():
 
     def prune(self):
         import torch.nn.utils.prune as prune
+        #
         if self.weight_file_name.split('_')[0] == 'FCN':
-            layers_parameters = []
             #
-            for module in self.model.named_modules():
-                if 'layers' in module[0] and not isinstance(module[1], torch.nn.ModuleList):
-                    layers_parameters.append((module[1], 'weight'))
-            #
-            parameters_to_prune = tuple(layers_parameters)
-            #
-            prune.global_unstructured(
-                parameters_to_prune,
-                pruning_method=prune.L1Unstructured,
-                amount=0.5,
-            )
+            if self.cfg['compression']['pruning_type'] == 'global_unstructured':
+                layers_parameters = []
+                #
+                for module in self.model.named_modules():
+                    if 'layers' in module[0] and not isinstance(module[1], torch.nn.ModuleList):
+                        layers_parameters.append((module[1], 'weight'))
+                #
+                parameters_to_prune = tuple(layers_parameters)
+                #
+                prune.global_unstructured(
+                    parameters_to_prune,
+                    pruning_method=prune.L1Unstructured,
+                    amount=0.5,
+                )
 
-            # for _, bias in enumerate(parameters_to_prune):
-            #     prune.ln_structured(bias[0], name="bias",
-            #                         amount=self.cfg['compression']['pruning_ratio'],
-            #                         n=2,
-            #                         dim=0)
-            #
-            # # for _, bias in enumerate(parameters_to_prune):
-            # #     prune.ln_structured(torch.unsqueeze(bias[0].bias, dim=1), name="bias",
-            # #                         amount=self.cfg['compression']['pruning_ratio'],
-            # #                         n=2,
-            # #                         dim=0)
+                prune.remove(module, 'weight')
+
+                # for _, bias in enumerate(parameters_to_prune):
+                #     prune.ln_structured(bias[0], name="bias",
+                #                         amount=self.cfg['compression']['pruning_ratio'],
+                #                         n=2,
+                #                         dim=0)
+                #
+                # # for _, bias in enumerate(parameters_to_prune):
+                # #     prune.ln_structured(torch.unsqueeze(bias[0].bias, dim=1), name="bias",
+                # #                         amount=self.cfg['compression']['pruning_ratio'],
+                # #                         n=2,
+                # #                         dim=0)
+
+            elif self.cfg['compression']['pruning_type'] == 'ln_structured' and self.cfg['compression']['pruning_n']=='1':
+                for name, module in self.model.named_modules():
+                    if isinstance(module, torch.nn.Linear):
+                        prune.ln_structured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'], n=1, dim=0)
+
+                for name, module in self.model.named_modules():
+                    if isinstance(module, torch.nn.Linear):
+                        prune.ln_structured(module, name="bias", amount=self.cfg['compression']['pruning_ratio'], n=1, dim=0)
+
+            elif self.cfg['compression']['pruning_type'] == 'ln_structured' and self.cfg['compression']['pruning_n'] == '2':
+                for name, module in self.model.named_modules():
+                    if isinstance(module, torch.nn.Linear):
+                        prune.ln_structured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'], n=1, dim=2)
+
+                for name, module in self.model.named_modules():
+                    if isinstance(module, torch.nn.Linear):
+                        prune.ln_structured(module, name="bias", amount=self.cfg['compression']['pruning_ratio'], n=1, dim=2)
+
+            elif self.cfg['compression']['pruning_type'] == 'l1_unstructured':
+                for name, module in self.model.named_modules():
+                    if isinstance(module, torch.nn.Linear):
+                        prune.l1_unstructured(module, name='weight', amount=self.cfg['compression']['pruning_ratio'])
+
+                for name, module in self.model.named_modules():
+                    if isinstance(module, torch.nn.Linear):
+                        prune.l1_unstructured(module, name='bias', amount=self.cfg['compression']['pruning_ratio'])
+
+                prune.remove(module, 'weight')
+                prune.remove(module, 'bias')
+
+            elif self.cfg['compression']['pruning_type'] == 'random_unstructured':
+                for name, module in self.model.named_modules():
+                    if isinstance(module, torch.nn.Linear):
+                        prune.random_unstructured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'])
+                        prune.random_unstructured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'])
+
+            else:
+                raise NotImplementedError
+
         elif self.weight_file_name.split('_')[0] == 'CNN':
             raise NotImplementedError
+
+    def knowledge_distillation(self):
+        if self.weight_file_name.split('_')[0] == 'FCN':
+            state_dict = torch.load('/content/drive/MyDrive/fc_layer.pth')
+            teacher = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
+            teacher.load_state_dict(state_dict)
+
+
 
     def start_compress(self):
         try:

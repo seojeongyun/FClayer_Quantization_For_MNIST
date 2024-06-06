@@ -18,6 +18,7 @@ def get_config_dict():
         name='linear_network_for_mnist',
         type='FCN',
         layer_dim=[784, 98, 60, 10],
+        t_layer_dim=[784, 98, 60, 30, 10],
         dropout_pos=0,          #if the first layer is [784, 98]0,1,2 ...
     )
 
@@ -36,7 +37,9 @@ def get_config_dict():
     )
 
     compression = dict(
-        type='train',
+        type='pruning',
+        pruning_type='random_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
+        pruning_n='1', # 1 or 2
         #
         # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
         # 'quantization+pruning', 'quantization+knowledge_distillation', 'pruning+knowledge_distillation'
