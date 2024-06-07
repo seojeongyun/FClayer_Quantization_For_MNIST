@@ -134,9 +134,12 @@ class Trainer():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
-                                     dropout=self.cfg['solver']['dropout'],
-                                     dropout_pos=self.cfg['model']['dropout_pos']).to(self.device)
+            if self.cfg['compression']['type'] == 'knowledge_distillation':
+                model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
+                                         dropout=self.cfg['solver']['dropout'],
+                                         dropout_pos=self.cfg['model']['dropout_pos'])
+            else:
+                model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
         else:
             raise NotImplementedError
 
@@ -311,6 +314,7 @@ class Tester():
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
         how_much_batch_size = str(self.cfg['dataset']['batch_size'])
+
         weight_file_name = what_kind_of_model + \
                          how_many_stacked_layer + \
                          how_much_dimension_of_each_layer + \
@@ -346,7 +350,14 @@ class Tester():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
+            if self.cfg['compression']['type'] == 'knowledge_distillation':
+                model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
+                                         dropout=self.cfg['solver']['dropout'],
+                                         dropout_pos=self.cfg['model']['dropout_pos'])
+            else:
+                model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
+                                         dropout=self.cfg['solver']['dropout'],
+                                         dropout_pos=self.cfg['model']['dropout_pos'])
             print("Load model..")
             model.load_state_dict(torch.load(self.base_path + '/' + self.load_dir_name + '/' + self.weight_file_name))
             print("Model load success")
@@ -524,6 +535,16 @@ class Compressor():
                          how_much_epoch + \
                          how_much_batch_size + '.pth'
 
+        # weight_file_name = what_kind_of_model + \
+        #                  how_many_stacked_layer + \
+        #                  how_much_dimension_of_each_layer + \
+        #                  where_apply_dropout_in_layers + \
+        #                  how_much_dropout_ratio + \
+        #                  what_kind_of_model_compression_technologies + \
+        #                  how_much_pruning_ratio + \
+        #                  how_much_epoch + \
+        #                  how_much_batch_size + '.pth'
+        #
         return weight_file_name
 
 
@@ -550,10 +571,17 @@ class Compressor():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
+            if self.cfg['compression']['type'] == 'knowledge_distillation':
+                model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
+                                         dropout=self.cfg['solver']['dropout'],
+                                         dropout_pos=self.cfg['model']['dropout_pos'])
+            else:
+                model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
+
             print("Load model..")
             model.load_state_dict(torch.load(self.base_path + '/' + self.load_dir_name + '/' + self.weight_file_name))
             print("Model load success")
+
         else:
             raise NotImplementedError
 
@@ -713,7 +741,7 @@ class Compressor():
                     amount=0.5,
                 )
 
-                prune.remove(module, 'weight')
+                # prune.remove(module, 'weight')
 
                 # for _, bias in enumerate(parameters_to_prune):
                 #     prune.ln_structured(bias[0], name="bias",

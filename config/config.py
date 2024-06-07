@@ -38,7 +38,7 @@ def get_config_dict():
 
     compression = dict(
         type='pruning',
-        pruning_type='random_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
+        pruning_type='global_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
         pruning_n='1', # 1 or 2
         #
         # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
