@@ -47,6 +47,9 @@ def get_config_dict():
         # the default value is 'nothing'
         #
         pruning_ratio=0.5,
+        t=20.0,
+        alpha=0.7,
+        distill_type='qat', # qat or ptq or nothing
     )
 
 

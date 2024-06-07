@@ -1,7 +1,7 @@
 import torch
-from torch import nn
-import torch.nn.utils.prune as prune
 import torch.nn.functional as F
+
+from torch import nn
 
 class ClassifierModule(nn.Module):
     def __init__(self, layer_dim=[784,98,10], dropout=0.5, dropout_pos=0):

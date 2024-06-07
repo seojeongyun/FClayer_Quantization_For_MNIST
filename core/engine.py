@@ -7,9 +7,13 @@ import os
 import torch
 import numpy as np
 import time
+import torch.nn.functional as F
 
+from torch import nn
+from copy import deepcopy
 from torch.utils.data import DataLoader
 from model.linear_network import ClassifierModule
+from model.quantized_linear_model import quantizedLinearModule
 
 class Trainer():
     def __init__(self, cfg, device=torch.device('cpu')):
@@ -342,7 +346,7 @@ class Tester():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'])
+            model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
             print("Load model..")
             model.load_state_dict(torch.load(self.base_path + '/' + self.load_dir_name + '/' + self.weight_file_name))
             print("Model load success")
@@ -456,10 +460,19 @@ class Compressor():
 
 
         # ===== DataLoader ======
-        self.val_loader = self.get_dataloader()
+        self.train_loader, self.val_loader = self.get_dataloader()
 
         # ===== Model ======
         self.model = self.build_model()
+
+        # ===== Optimizeer ======
+        self.optimizer = self.build_optimizer()
+
+        # ===== Scheduler ======
+        self.scheduler = self.build_scheduler(self.optimizer)
+
+        # ===== Loss ======
+        self.compute_loss = self.set_criterion()
 
         # ===== Parameters ======
         self.max_epoch = self.cfg['solver']['max_epoch']
@@ -537,7 +550,7 @@ class Compressor():
             # model = ResNet().to(self.device)
         elif model_name == 'linear_network_for_mnist':
             from model.linear_network import ClassifierModule
-            model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'])
+            model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
             print("Load model..")
             model.load_state_dict(torch.load(self.base_path + '/' + self.load_dir_name + '/' + self.weight_file_name))
             print("Model load success")
@@ -549,6 +562,25 @@ class Compressor():
             print(param_tensor, "\t", model.state_dict()[param_tensor].size())
 
         return model.to(self.device)
+
+    def build_scheduler(self, optimizer):
+        if self.cfg['scheduler']['name'] == 'steplr':
+            scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, gamma=0.9, step_size=5)
+
+        elif self.cfg['scheduler']['name'] == 'cycliclr':
+            scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-6, max_lr=1e-4,
+                                                         cycle_momentum=False, step_size_up=20, step_size_down=2,
+                                                         mode='triangular2')
+        else:
+            raise NotImplementedError
+        return scheduler
+
+    def set_criterion(self):
+        return torch.nn.BCEWithLogitsLoss(reduction='sum').to(self.device)
+
+    def build_optimizer(self):
+        from solver.fn_optimizer import build_optimizer
+        return build_optimizer(self.cfg, self.model)
 
     def get_dataloader(self):
         if self.cfg['dataset']['name'] == 'wdm':
@@ -562,10 +594,27 @@ class Compressor():
             raise ValueError('Invalid dataset name,' 'currently supported [wdm]')
 
         #
+        train_path = self.cfg['dataset']['train_path']
         val_path = self.cfg['dataset']['val_path']
         batch_size = self.cfg['dataset']['batch_size']
         num_workers = self.cfg['dataset']['num_workers']
         height, width = self.cfg['dataset']['height'], self.cfg['dataset']['width']
+        #
+        train_object = data_loader(
+            path=train_path,
+            height=height,
+            width=width,
+            augmentation=True,
+            task='train'
+        )
+        #
+        train_loader = DataLoader(
+            train_object,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            collate_fn=data_loader.collate_fn
+        )
         #
         val_object = data_loader(
             path=val_path,
@@ -584,8 +633,66 @@ class Compressor():
             collate_fn=data_loader.collate_fn
         )
 
-        return val_loader
+        return train_loader, val_loader
+    def build_qat_model(self, model):
+        fused_model = deepcopy(model)
+        # The model has to be switched to training mode before any layer fusion.
+        fused_model.train()
+        # TODO: we have to implement a fusing function into a convBNReLU module class.
+        #       Then, the fusing function should be conducted here.
+        # fused_model.eval()
 
+        qat_model = quantizedLinearModule(model_fp32=fused_model)
+
+        backend = "fbgemm"
+        # Default qconfig (quantization configuration)
+        # quantization_config = torch.quantization.get_default_qconfig(backend)
+
+        # Custom qconfig
+        quantization_config = torch.quantization.get_default_qconfig
+        quantization_config = torch.quantization.QConfig(
+            activation=torch.quantization.MovingAverageMinMaxObserver.with_args(dtype=torch.quint8,
+                                                                                qscheme=torch.per_tensor_affine),
+            weight=torch.quantization.MinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric)
+        )
+        qat_model.qconfig = quantization_config
+        torch.quantization.prepare_qat(qat_model, inplace=True)
+
+        return qat_model.to('cpu')
+
+    def build_ptq_model(self, model):
+
+        fused_model = deepcopy(model.to('cpu'))
+        # The model has to be switched to training mode before any layer fusion.
+        fused_model.train()
+        # TODO: we have to implement a fusing function into a convBNReLU module class.
+        #       Then, the fusing function should be conducted here.
+        fused_model.eval()
+
+        quantized_model_ptq = quantizedLinearModule(model_fp32=fused_model)
+
+        backend = "fbgemm"
+        # Default qconfig (quantization configuration)
+        # quantization_config = torch.quantization.get_default_qconfig(backend)
+
+        # Custom qconfig
+        quantization_config = torch.quantization.get_default_qconfig
+        quantization_config = torch.quantization.QConfig(
+            activation=torch.quantization.MovingAverageMinMaxObserver.with_args(dtype=torch.quint8,
+                                                                                qscheme=torch.per_tensor_affine),
+            weight=torch.quantization.MinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric)
+        )
+
+        quantized_model_ptq.qconfig = quantization_config
+
+        torch.quantization.prepare(quantized_model_ptq, inplace=True)
+
+        Compressor.calibrate_model(model=quantized_model_ptq, num_batches=self.cfg['dataset']['batch_size'])
+
+        torch.quantization.convert(quantized_model_ptq, inplace=True)
+
+        return quantized_model_ptq
+    #
     def prune(self):
         import torch.nn.utils.prune as prune
         #
@@ -664,10 +771,76 @@ class Compressor():
 
     def knowledge_distillation(self):
         if self.weight_file_name.split('_')[0] == 'FCN':
+            # Load Teacher model
             state_dict = torch.load('/content/drive/MyDrive/fc_layer.pth')
-            teacher = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
-            teacher.load_state_dict(state_dict)
+            teacher_model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
+            teacher_model.load_state_dict(state_dict)
+            teacher_model.to(self.device);
 
+            # Load Student model
+            if self.cfg['compression']['distill_type'] == 'qat':
+                student_model = self.build_qat_model(self.model())
+            else:
+                student_model = self.model()
+
+            student_model.to('cpu');
+            student_model.eval();
+            student_model.train();
+
+        try:
+            for epoch in range(self.max_epoch):
+                text = " distill_epoch : {} ".format(epoch + 1)
+                total_width = 50
+                formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+                print(formatted_text)
+                # ======= knowledge distillation start =======
+                pbar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
+                #
+                pred = []
+                true = []
+                #
+                for step, batch_data in pbar:
+                    imgs = batch_data[0].to(self.device)
+                    labels = batch_data[1].to(self.device)
+                    #
+                    teacher_pred = teacher_model(imgs)
+                    student_pred = student_model(imgs)
+
+                    # Calculate Loss
+                    loss = Compressor.distillation(student_pred, labels, teacher_pred, self.cfg['compression']['t'], self.cfg['compression']['alpha'])
+
+                    # Update
+                    self.optimizer.zero_grad()
+                    loss.backward()
+                    self.optimizer.step()
+
+                    #
+                    pred.append(student_pred.argmax(dim=1))
+                    true.append(labels.argmax(dim=1))
+
+                self.scheduler.step()
+
+                pred = torch.cat(pred, dim=0)
+                true = torch.cat(true, dim=0)
+
+                acc = self.accuracy(true, pred).detach().cpu()
+
+                text = " student_acc : {} ".format(acc)
+                total_width = 50
+                formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+                print(formatted_text)
+                # ======= knowledge distillation end =======
+
+            print("Model's state_dict:")
+            for param_tensor in self.model.state_dict():
+                print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
+
+            print("Save model...")
+            torch.save(self.model.state_dict(),
+                       self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
+
+        except:
+            print('ERROR in distillation loop...')
 
 
     def start_compress(self):
@@ -722,3 +895,28 @@ class Compressor():
     @staticmethod
     def accuracy(true, pred):
         return (true == pred).sum() / true.shape[0]
+
+    @staticmethod
+    # knowledge distillation loss
+    def distillation(y, labels, teacher_scores, T, alpha):
+        # distillation loss + classification loss
+        # y: student
+        # labels: hard label
+        # teacher_scores: soft label
+        student_loss = F.cross_entropy(y, labels) * (1. - alpha)  # hard loss with hard label
+        distillation_loss = nn.KLDivLoss(reduction='batchmean')(
+            F.log_softmax(y / T, dim=1), F.softmax(teacher_scores / T, dim=1)  # soft loss with teacher logits
+        ) * (T * T * 2.0 + alpha)
+        return student_loss + distillation_loss
+
+    @staticmethod
+    def calibrate_model(model, num_batches, device=torch.device("cpu:0")):
+        model.to(device)
+        model.eval()
+        pbar = tqdm(enumerate(Compressor.val_loader), total=len(Compressor.val_loader))
+
+        for i, batch_data in pbar:
+            imgs = batch_data[0].to(device)
+            _ = model(imgs)
+            if i >= num_batches:
+                break
