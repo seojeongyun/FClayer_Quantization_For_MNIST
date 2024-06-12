@@ -18,7 +18,6 @@ def get_config_dict():
         name='linear_network_for_mnist',
         type='FCN',
         layer_dim=[784, 700, 600, 500, 400, 300, 200, 100, 50, 25, 10],
-        # t_layer_dim=[784, 98, 60, 30, 10],
         dropout_pos=8,          #if the first layer is [784, 98]0,1,2 ...
     )
 
@@ -37,28 +36,36 @@ def get_config_dict():
     )
 
     compression = dict(
-        type=['pruning'],
-        # 'ptq' / 'qat' / 'knowledge_distillation' / 'pruning'
-        # 'ptq+kd' / 'qat+kd' / 'kd+pruning' / 'ptq+pruning' / 'qat+pruning'
-        # 'qat+kd+pruning' / 'ptq+kd+pruning'
+        type=[ 'pruning', \
+              'ptq+kd', 'qat+kd', 'kd+pruning', 'ptq+pruning', 'qat+pruning', \
+              'qat+kd+pruning', 'ptq+kd+pruning'],
+        # 'ptq', 'qat', 'kd',
+        # ===== parameters for pruning =====
         pruning_type='global_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
         pruning_n='1', # 1 or 2
-        #
+        pruning_ratio=0.5,
+
+        # ===== parameters for knowledge distillation =====
+        teacher_model_path='/home/jysuh/PycharmProjects/FClayer_Quantization_For_MNIST/runs/linear_network_for_mnist/weights/teacher_model.pth',
+        t_layer_dim=[784, 700, 600, 500, 400, 300, 200, 100, 50, 25, 10],
+        kd_epoch=10,
+        t=20.0,
+        alpha=0.7,
+
+        # ===== parameters for quantization =====
+        qat_epoch=10,
         # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
         # 'quantization+pruning', 'quantization+knowledge_distillation', 'pruning+knowledge_distillation'
         # 'quantization+pruning+knowledge_distillation'
         # the default value is 'nothing'
         #
-        pruning_ratio=0.5,
-        t=20.0,
-        alpha=0.7,
         distill_type='qat', # qat or ptq or nothing
     )
 
 
     # Merge all information into a dictionary variable
     config = dict(
-        task='train',            # 'train' or 'test' or 'compress'
+        task='compress',            # 'train' or 'test' or 'compress'
         dataset=dataset_info,
         path=path,
         model=model,
