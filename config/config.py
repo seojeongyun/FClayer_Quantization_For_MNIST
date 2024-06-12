@@ -36,24 +36,22 @@ def get_config_dict():
     )
 
     compression = dict(
-        type=[ 'pruning', \
-              'ptq+kd', 'qat+kd', 'kd+pruning', 'ptq+pruning', 'qat+pruning', \
-              'qat+kd+pruning', 'ptq+kd+pruning'],
-        # 'ptq', 'qat', 'kd',
+        type=['qat+kd', 'qat+kd+pruning'],
+        # 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning', 'ptq+pruning', 'qat+pruning'
         # ===== parameters for pruning =====
-        pruning_type='global_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
+        pruning_type='random_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured O
         pruning_n='1', # 1 or 2
         pruning_ratio=0.5,
 
         # ===== parameters for knowledge distillation =====
         teacher_model_path='/home/jysuh/PycharmProjects/FClayer_Quantization_For_MNIST/runs/linear_network_for_mnist/weights/teacher_model.pth',
         t_layer_dim=[784, 700, 600, 500, 400, 300, 200, 100, 50, 25, 10],
-        kd_epoch=10,
+        kd_epoch=1,
         t=20.0,
         alpha=0.7,
 
         # ===== parameters for quantization =====
-        qat_epoch=10,
+        qat_epoch=1,
         # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
         # 'quantization+pruning', 'quantization+knowledge_distillation', 'pruning+knowledge_distillation'
         # 'quantization+pruning+knowledge_distillation'

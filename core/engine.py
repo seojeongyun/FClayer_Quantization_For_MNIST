@@ -743,7 +743,7 @@ class Compressor():
         self.calibrate_model(model=quantized_model_ptq, num_batches=self.cfg['dataset']['batch_size'])
 
         torch.quantization.convert(quantized_model_ptq, inplace=True)
-
+        print(torch.int_repr(quantized_model_ptq.get_submodule('model_fp32').get_submodule('layers').get_submodule('1')._weight_bias()[0]))
         return quantized_model_ptq
 
     def calibrate_model(self, model, num_batches, device=torch.device("cpu:0")):
@@ -802,11 +802,13 @@ class Compressor():
             print(formatted_text)
             # ======= qat_train end =======
 
-        print("QAT_Model's state_dict:")
-        for param_tensor in model.state_dict():
-            print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+        torch.quantization.convert(model, inplace=True)
 
-        print("Save model...")
+        # print("QAT_Model's state_dict:")
+        # for param_tensor in model.state_dict():
+        #     print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+
+        print("Save QAT Model...")
         torch.save(model.state_dict(),
                    self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
 
@@ -862,22 +864,22 @@ class Compressor():
             elif self.cfg['compression']['pruning_type'] == 'ln_structured' and self.cfg['compression']['pruning_n'] == '1':
                 for name, module in model.named_modules():
                     if isinstance(module, torch.nn.Linear):
-                        prune.ln_structured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'], n=1,
-                                            dim=0)
-                        prune.ln_structured(module, name="bias", amount=self.cfg['compression']['pruning_ratio'], n=1,
-                                            dim=0)
+                        prune.ln_structured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'], n=1, dim=0)
+                        prune.remove(module, 'weight')
 
             elif self.cfg['compression']['pruning_type'] == 'ln_structured' and self.cfg['compression']['pruning_n'] == '2':
                 for name, module in model.named_modules():
                     if isinstance(module, torch.nn.Linear):
-                        prune.ln_structured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'], n=1, dim=2)
-                        prune.ln_structured(module, name="bias", amount=self.cfg['compression']['pruning_ratio'], n=1, dim=2)
+                        prune.ln_structured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'], n=2, dim=0)
+                        prune.remove(module, 'weight')
 
             elif self.cfg['compression']['pruning_type'] == 'l1_unstructured':
                 for name, module in model.named_modules():
                     if isinstance(module, torch.nn.Linear):
                         prune.l1_unstructured(module, name='weight', amount=self.cfg['compression']['pruning_ratio'])
                         prune.l1_unstructured(module, name='bias', amount=self.cfg['compression']['pruning_ratio'])
+                        prune.remove(module, 'weight')
+                        prune.remove(module, 'bias')
 
 
             elif self.cfg['compression']['pruning_type'] == 'random_unstructured':
@@ -885,9 +887,12 @@ class Compressor():
                     if isinstance(module, torch.nn.Linear):
                         prune.random_unstructured(module, name="weight", amount=self.cfg['compression']['pruning_ratio'])
                         prune.random_unstructured(module, name="bias", amount=self.cfg['compression']['pruning_ratio'])
+                        prune.remove(module, 'weight')
+                        prune.remove(module, 'bias')
 
             else:
                 raise NotImplementedError
+
 
         elif self.weight_file_name.split('_')[0] == 'CNN':
             raise NotImplementedError
@@ -946,12 +951,16 @@ class Compressor():
                 pred = []
                 true = []
                 #
+                teacher_model = teacher_model.to('cpu')
+                student_model = student_model.to('cpu')
                 for step, batch_data in pbar:
                     imgs = batch_data[0].to(self.device)
                     labels = batch_data[1].to(self.device)
+                    imgs = batch_data[0].to('cpu')
+                    labels = batch_data[1].to('cpu')
                     #
-                    teacher_pred = teacher_model(imgs)
-                    student_pred = student_model(imgs)
+                    teacher_pred = teacher_model.to('cpu')(imgs)
+                    student_pred = student_model.to('cpu')(imgs)
 
                     # Calculate Loss
                     loss = Compressor.distillation(student_pred, labels, teacher_pred, self.cfg['compression']['t'],
@@ -993,7 +1002,7 @@ class Compressor():
         return student_model
 
     def start_compress(self):
-        # 'ptq', 'qat', 'kd', 'pruning', 'ptq+kd', 'qat+kd', 'kd+pruning', 'ptq+pruning', 'qat+pruning', 'qat+kd+pruning', 'ptq+kd+pruning'
+        # 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning', 'ptq+pruning', 'qat+pruning', 'qat+kd', 'qat+kd+pruning'
         # 'ptq': self.fn_ptq, 'qat': self.fn_qat, 'kd': self.fn_kd, 'pruning': self.fn_prune
 
         try:
