@@ -143,7 +143,7 @@ class Trainer():
         else:
             raise NotImplementedError
 
-        return model
+        return model.to(self.device)
     def get_dataloader(self):
         if self.cfg['dataset']['name'] == 'wdm':
             raise ValueError('WDM dataset not exist in ./dataset')
@@ -800,7 +800,7 @@ class Compressor():
     def knowledge_distillation(self):
         if self.weight_file_name.split('_')[0] == 'FCN':
             # Load Teacher model
-            state_dict = torch.load('/content/drive/MyDrive/fc_layer.pth')
+            state_dict = torch.load('/home/jysuh/PycharmProjects/FClayer_Quantization_For_MNIST/runs/linear_network_for_mnist/compressed_weights/FCN_4_784_98_56_30_10_1_0.2_pruning_0.5_30_50.pth')
             teacher_model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
             teacher_model.load_state_dict(state_dict)
             teacher_model.to(self.device);

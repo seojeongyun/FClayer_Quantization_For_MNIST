@@ -6,8 +6,8 @@ def get_config_dict():
         height=28,
         width=28,
         channel=1,
-        batch_size=50,
-        num_workers=0,
+        batch_size=100,
+        num_workers=4,
     )
 
     path = dict(
@@ -17,9 +17,9 @@ def get_config_dict():
     model = dict(
         name='linear_network_for_mnist',
         type='FCN',
-        layer_dim=[784, 98, 60, 10],
-        t_layer_dim=[784, 98, 60, 30, 10],
-        dropout_pos=0,          #if the first layer is [784, 98]0,1,2 ...
+        layer_dim=[784, 700, 600, 500, 400, 300, 200, 100, 50, 25, 10],
+        # t_layer_dim=[784, 98, 60, 30, 10],
+        dropout_pos=8,          #if the first layer is [784, 98]0,1,2 ...
     )
 
     solver = dict(
@@ -28,7 +28,7 @@ def get_config_dict():
         lr0=1e-4,
         momentum=0.937,
         weight_decay=5e-4,
-        max_epoch=30,
+        max_epoch=50,
         dropout=0.2,
     )
 
@@ -37,7 +37,10 @@ def get_config_dict():
     )
 
     compression = dict(
-        type='pruning',
+        type=['pruning'],
+        # 'ptq' / 'qat' / 'knowledge_distillation' / 'pruning'
+        # 'ptq+kd' / 'qat+kd' / 'kd+pruning' / 'ptq+pruning' / 'qat+pruning'
+        # 'qat+kd+pruning' / 'ptq+kd+pruning'
         pruning_type='global_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
         pruning_n='1', # 1 or 2
         #
@@ -55,7 +58,7 @@ def get_config_dict():
 
     # Merge all information into a dictionary variable
     config = dict(
-        task='compress',            # 'train' or 'test' or 'compress'
+        task='train',            # 'train' or 'test' or 'compress'
         dataset=dataset_info,
         path=path,
         model=model,
