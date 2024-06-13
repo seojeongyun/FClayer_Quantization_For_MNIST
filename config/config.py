@@ -36,10 +36,10 @@ def get_config_dict():
     )
 
     compression = dict(
-        type=['qat+kd', 'qat+kd+pruning'],
-        # 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning', 'ptq+pruning', 'qat+pruning'
+        type=['ptq', 'qat', 'kd', 'pruning', 'kd+pruning', 'ptq+pruning', 'qat+pruning', 'qat+kd', 'qat+kd+pruning'],
+
         # ===== parameters for pruning =====
-        pruning_type='random_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured O
+        pruning_type='global_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
         pruning_n='1', # 1 or 2
         pruning_ratio=0.5,
 

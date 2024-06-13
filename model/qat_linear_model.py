@@ -21,7 +21,7 @@ class qat_model(nn.Module):
 
     def get_weights(self, quantized_model):
         weights = []
-        for layer_idx in range(len(self.layer_dim)):
+        for layer_idx in range(len(self.layer_dim)-1):
             weights.append(torch.int_repr(quantized_model.get_submodule('model_fp32').get_submodule('layers').get_submodule(f'{layer_idx}')._weight_bias()[0]))
 
         return weights
@@ -52,7 +52,7 @@ class qat_model(nn.Module):
         weight_num = 0
 
         for layer in self.forward_prop:
-            if layer is isinstance(nn.Linear):
+            if layer is isinstance(layer, nn.Linear):
                 out = F.linear(out, self.weights[weight_num].float())
                 weight_num += 1
             else:

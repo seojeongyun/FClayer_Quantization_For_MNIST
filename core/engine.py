@@ -14,6 +14,7 @@ from copy import deepcopy
 from torch.utils.data import DataLoader
 from model.linear_network import ClassifierModule
 from model.quantized_linear_model import quantizedLinearModule
+from model.qat_linear_model import qat_model
 
 class Trainer():
     def __init__(self, cfg, device=torch.device('cpu')):
@@ -804,15 +805,20 @@ class Compressor():
 
         torch.quantization.convert(model, inplace=True)
 
+        quantized_model = qat_model(quantized_model=model,
+                              layer_dim=self.cfg['model']['layer_dim'],
+                              dropout=self.cfg['solver']['dropout'],
+                              dropout_pos=self.cfg['model']['dropout_pos'])
+
         # print("QAT_Model's state_dict:")
         # for param_tensor in model.state_dict():
-        #     print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+        #     print(param_tensor, "\t", quantized_model.state_dict()[param_tensor].size())
 
         print("Save QAT Model...")
-        torch.save(model.state_dict(),
+        torch.save(quantized_model.state_dict(),
                    self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
 
-        return model
+        return quantized_model
 
     def fn_qat(self, model):
         model = self.build_qat_model(model)
@@ -951,11 +957,11 @@ class Compressor():
                 pred = []
                 true = []
                 #
-                teacher_model = teacher_model.to('cpu')
-                student_model = student_model.to('cpu')
+                # teacher_model = teacher_model.to('cpu')
+                # student_model = student_model.to('cpu')
                 for step, batch_data in pbar:
-                    imgs = batch_data[0].to(self.device)
-                    labels = batch_data[1].to(self.device)
+                    # imgs = batch_data[0].to(self.device)
+                    # labels = batch_data[1].to(self.device)
                     imgs = batch_data[0].to('cpu')
                     labels = batch_data[1].to('cpu')
                     #
@@ -1013,6 +1019,7 @@ class Compressor():
                 for method_idx in range(len(method_list)):
                     sel_method = method_list.pop(0)
                     model = self.method_dict[sel_method](model)
+
         except:
             print("sibal")
 
