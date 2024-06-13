@@ -7,7 +7,7 @@ def get_config_dict():
         width=28,
         channel=1,
         batch_size=100,
-        num_workers=4,
+        num_workers=0,
     )
 
     path = dict(
@@ -36,8 +36,8 @@ def get_config_dict():
     )
 
     compression = dict(
-        type=['ptq', 'qat', 'kd', 'pruning', 'kd+pruning', 'ptq+pruning', 'qat+pruning', 'qat+kd', 'qat+kd+pruning'],
-
+        type=['ptq+pruning', 'qat+pruning', 'qat+kd', 'qat+kd+pruning'],
+        # 'normal', 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning',
         # ===== parameters for pruning =====
         pruning_type='global_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
         pruning_n='1', # 1 or 2

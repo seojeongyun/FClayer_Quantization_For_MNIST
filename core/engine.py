@@ -14,7 +14,19 @@ from copy import deepcopy
 from torch.utils.data import DataLoader
 from model.linear_network import ClassifierModule
 from model.quantized_linear_model import quantizedLinearModule
-from model.qat_linear_model import qat_model
+from model.quantized_linear_model_for_inference import quantized_model_for_inf
+
+def printf(say_something:str, total_width:int=50, format=None):
+    if format is None:
+        text = say_something
+        total_width = total_width
+        formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+        print(formatted_text)
+    else:
+        text = " student_acc : {} ".format(format)
+        total_width = 50
+        formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+        print(formatted_text)
 
 class Trainer():
     def __init__(self, cfg, device=torch.device('cpu')):
@@ -484,9 +496,6 @@ class Compressor():
         # ===== Loss ======
         self.compute_loss = self.set_criterion()
 
-        # ===== comp_method =====
-        # self.method_dict = {'ptq' : }
-
         # ===== Parameters ======
         self.max_epoch = self.cfg['solver']['max_epoch']
         self.qat_epoch = self.cfg['compression']['qat_epoch']
@@ -689,7 +698,8 @@ class Compressor():
     # ==============================================================================
 
     def build_qat_model(self, model):
-        fused_model = deepcopy(model.to('cpu'))
+        printf(say_something='building qat model ..', total_width=50)
+        fused_model = deepcopy(model.to(self.device))
         # The model has to be switched to training mode before any layer fusion.
         fused_model.train()
         # TODO: we have to implement a fusing function into a convBNReLU module class.
@@ -715,8 +725,9 @@ class Compressor():
         return qat_model.to('cpu')
 
     def build_ptq_model(self, model):
+        printf(say_something='building ptq model ..', total_width=50)
 
-        fused_model = deepcopy(model.to('cpu'))
+        fused_model = deepcopy(model.to(self.device))
         # The model has to be switched to training mode before any layer fusion.
         fused_model.train()
         # TODO: we have to implement a fusing function into a convBNReLU module class.
@@ -744,7 +755,10 @@ class Compressor():
         self.calibrate_model(model=quantized_model_ptq, num_batches=self.cfg['dataset']['batch_size'])
 
         torch.quantization.convert(quantized_model_ptq, inplace=True)
+
+        printf(say_something='Check whether a trained float model is quantized')
         print(torch.int_repr(quantized_model_ptq.get_submodule('model_fp32').get_submodule('layers').get_submodule('1')._weight_bias()[0]))
+
         return quantized_model_ptq
 
     def calibrate_model(self, model, num_batches, device=torch.device("cpu:0")):
@@ -795,30 +809,25 @@ class Compressor():
             pred = torch.cat(pred_list, dim=0)
             true = torch.cat(true_list, dim=0)
 
-            acc = self.accuracy(true, pred).detach().cpu()
-
-            text = " qat_acc : {} ".format(acc)
-            total_width = 50
-            formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
-            print(formatted_text)
+            printf(say_something='qat_train_end', total_width=50)
             # ======= qat_train end =======
 
         torch.quantization.convert(model, inplace=True)
 
-        quantized_model = qat_model(quantized_model=model,
-                              layer_dim=self.cfg['model']['layer_dim'],
-                              dropout=self.cfg['solver']['dropout'],
-                              dropout_pos=self.cfg['model']['dropout_pos'])
+        # quantized_model = quantized_model_for_inf(quantized_model=model,
+        #                       layer_dim=self.cfg['model']['layer_dim'],
+        #                       dropout=self.cfg['solver']['dropout'],
+        #                       dropout_pos=self.cfg['model']['dropout_pos'])
 
         # print("QAT_Model's state_dict:")
         # for param_tensor in model.state_dict():
         #     print(param_tensor, "\t", quantized_model.state_dict()[param_tensor].size())
 
-        print("Save QAT Model...")
-        torch.save(quantized_model.state_dict(),
-                   self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
+        # print("Save QAT Model...")
+        # torch.save(quantized_model.state_dict(),
+        #            self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
 
-        return quantized_model
+        return model
 
     def fn_qat(self, model):
         model = self.build_qat_model(model)
@@ -962,11 +971,11 @@ class Compressor():
                 for step, batch_data in pbar:
                     # imgs = batch_data[0].to(self.device)
                     # labels = batch_data[1].to(self.device)
-                    imgs = batch_data[0].to('cpu')
-                    labels = batch_data[1].to('cpu')
+                    imgs = batch_data[0].to(self.device)
+                    labels = batch_data[1].to(self.device)
                     #
-                    teacher_pred = teacher_model.to('cpu')(imgs)
-                    student_pred = student_model.to('cpu')(imgs)
+                    teacher_pred = teacher_model.to(self.device)(imgs)
+                    student_pred = student_model.to(self.device)(imgs)
 
                     # Calculate Loss
                     loss = Compressor.distillation(student_pred, labels, teacher_pred, self.cfg['compression']['t'],
@@ -994,31 +1003,109 @@ class Compressor():
                 print(formatted_text)
                 # ======= knowledge distillation end =======
 
-            print("KD Model's state_dict:")
-            for param_tensor in self.model.state_dict():
-                print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
-
-            print("Save model...")
-            torch.save(self.model.state_dict(),
-                       self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
+            # print("KD Model's state_dict:")
+            # for param_tensor in self.model.state_dict():
+            #     print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
+            #
+            # print("Save model...")
+            # torch.save(self.model.state_dict(),
+            #            self.base_path + '/' + self.save_dir_name + '/' + self.weight_file_name)
 
         except:
             print('ERROR in distillation loop...')
 
         return student_model
 
+    def start_test(self, model, type, result_dict):
+        try:
+            if 'qat' == type[:3] or 'ptq' == type[:3]:
+                model = quantized_model_for_inf(quantized_model=model,
+                              layer_dim=self.cfg['model']['layer_dim'],
+                              dropout=self.cfg['solver']['dropout'],
+                              dropout_pos=self.cfg['model']['dropout_pos'])
+            #
+            model.to(self.device)
+            model.eval()
+            #
+            text = " " + type + " Test start "
+            total_width = 50
+            formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+            print(formatted_text)
+
+            pbar = tqdm(enumerate(self.val_loader), total=len(self.val_loader))
+            #
+            pred = []
+            true = []
+            #
+            # ============= test start =============
+            time_start = time.time()
+            for step, batch_data in pbar:
+                imgs = batch_data[0].to(self.device)
+                labels = batch_data[1].to(self.device)
+                #
+                out_net = model.to(self.device)(imgs)
+
+                #
+                pred.append(out_net.argmax(dim=1))
+                true.append(labels.argmax(dim=1))
+                #
+            time_end = time.time()
+            # ============= test end =============
+
+            pred = torch.cat(pred, dim=0)
+            true = torch.cat(true, dim=0)
+
+            acc = self.accuracy(true, pred).detach().cpu()
+
+            text = " acc : {} ".format(acc)
+            total_width = 50
+            formatted_text = "{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
+            print(formatted_text)
+
+            op_time = time_end - time_start
+            text = " operation time : {} ".format(round(op_time, 3))
+            formatted_text = "{0:=>{width}}\n\n".format(text.center(total_width, '='), width=total_width)
+            print(formatted_text)
+
+            result_dict[str(type)]['op_time'] = op_time
+            result_dict[str(type)]['model_acc'] = acc
+
+            return result_dict
+
+        except:
+            print('ERROR in test ...')
+
     def start_compress(self):
         # 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning', 'ptq+pruning', 'qat+pruning', 'qat+kd', 'qat+kd+pruning'
         # 'ptq': self.fn_ptq, 'qat': self.fn_qat, 'kd': self.fn_kd, 'pruning': self.fn_prune
 
         try:
+            result_dict = dict()
             for method_type in range(len(self.cfg['compression']['type'])):
-                model = deepcopy(self.model)
                 method_list = []
+                #
+                model = deepcopy(self.model)
                 method_list = self.cfg['compression']['type'][method_type].split('+')
-                for method_idx in range(len(method_list)):
-                    sel_method = method_list.pop(0)
-                    model = self.method_dict[sel_method](model)
+                #
+                result_dict.setdefault(self.cfg['compression']['type'][method_type], {})
+                if torch.cuda.is_available():
+                    if method_list[0] == 'qat' or method_list[0] == 'ptq':
+                        self.device = 'cpu'
+                    else:
+                        self.device = 'cuda'
+                else:
+                    print('cuda is not available')
+                #
+                printf(say_something=self.cfg['compression']['type'][method_type] + " compression start")
+
+                if method_list[0] == 'normal':
+                    result_dict = self.start_test(model, self.cfg['compression']['type'][method_type], result_dict)
+
+                else:
+                    for method_idx in range(len(method_list)):
+                        sel_method = method_list.pop(0)
+                        model = self.method_dict[sel_method](model)
+                    result_dict = self.start_test(model, self.cfg['compression']['type'][method_type], result_dict)
 
         except:
             print("sibal")

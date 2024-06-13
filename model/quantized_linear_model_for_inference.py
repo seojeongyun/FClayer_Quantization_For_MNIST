@@ -3,9 +3,9 @@ import torch.nn.functional as F
 
 from torch import nn
 
-class qat_model(nn.Module):
+class quantized_model_for_inf(nn.Module):
     def __init__(self, quantized_model, layer_dim=[784,98,10], dropout=0.5, dropout_pos=0):
-        super(qat_model, self).__init__()
+        super(quantized_model_for_inf, self).__init__()
 
         self.layer_dim = layer_dim
         self.dropout_pos = dropout_pos
@@ -17,7 +17,7 @@ class qat_model(nn.Module):
         self.layers = nn.ModuleList(self.make_layer())
         self.forward_prop = self.make_forward_prop()
 
-        print(nn.ModuleList(self.forward_prop))
+        # print(nn.ModuleList(self.forward_prop))
 
     def get_weights(self, quantized_model):
         weights = []
@@ -52,8 +52,8 @@ class qat_model(nn.Module):
         weight_num = 0
 
         for layer in self.forward_prop:
-            if layer is isinstance(layer, nn.Linear):
-                out = F.linear(out, self.weights[weight_num].float())
+            if isinstance(layer, nn.Linear):
+                X = F.linear(X, self.weights[weight_num].float())
                 weight_num += 1
             else:
                 X = layer(X)
