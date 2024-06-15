@@ -1105,6 +1105,19 @@ class Compressor():
                     for method_idx in range(len(method_list)):
                         sel_method = method_list.pop(0)
                         model = self.method_dict[sel_method](model)
+
+                        if len(method_list) >= 1 and (sel_method == 'ptq' or sel_method == 'qat'):
+                            layers_parameters = []
+
+                            for module in model.named_modules():
+                                if 'layers.' in module[0]:
+                                    layers_parameters.append(module[0])
+
+                            for idx, layer_name in enumerate(layers_parameters):
+                                ptq_param = model.get_submodule('model_fp32').get_submodule('layers').get_submodule(str(idx))._weight_bias()[0]
+                                int_weight = torch.int_repr(ptq_param)
+                                model.get_submodule(layer_name).weight = torch.nn.Parameter(int_weight.float())
+
                     result_dict = self.start_test(model, self.cfg['compression']['type'][method_type], result_dict)
 
         except:

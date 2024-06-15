@@ -63,7 +63,7 @@ def get_config_dict():
 
     # Merge all information into a dictionary variable
     config = dict(
-        task='compress',            # 'train' or 'test' or 'compress'
+        task='train',            # 'train' or 'test' or 'compress'
         dataset=dataset_info,
         path=path,
         model=model,

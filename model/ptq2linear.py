@@ -3,9 +3,9 @@ import torch.nn.functional as F
 
 from torch import nn
 
-class ClassifierModule(nn.Module):
+class ptq2linear(nn.Module):
     def __init__(self, layer_dim=[784,98,10], dropout=0.5, dropout_pos=0):
-        super(ClassifierModule, self).__init__()
+        super(ptq2linear, self).__init__()
 
         self.layer_dim = layer_dim
         self.dropout_pos = dropout_pos
@@ -22,7 +22,7 @@ class ClassifierModule(nn.Module):
         layers = []
         for layer_idx in range(len(self.layer_dim)):
             if layer_idx != len(self.layer_dim)-1:
-                layers.append(nn.Linear(self.layer_dim[layer_idx], self.layer_dim[layer_idx+1]), bias=False)
+                layers.append(nn.Linear(self.layer_dim[layer_idx], self.layer_dim[layer_idx+1]))
             else:
                 continue
         return layers
