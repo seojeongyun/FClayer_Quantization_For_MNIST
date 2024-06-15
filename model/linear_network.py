@@ -22,7 +22,7 @@ class ClassifierModule(nn.Module):
         layers = []
         for layer_idx in range(len(self.layer_dim)):
             if layer_idx != len(self.layer_dim)-1:
-                layers.append(nn.Linear(self.layer_dim[layer_idx], self.layer_dim[layer_idx+1]), bias=False)
+                layers.append(nn.Linear(self.layer_dim[layer_idx], self.layer_dim[layer_idx+1], bias=False))
             else:
                 continue
         return layers

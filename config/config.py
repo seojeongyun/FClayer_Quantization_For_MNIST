@@ -36,7 +36,7 @@ def get_config_dict():
     )
 
     compression = dict(
-        type=['ptq+pruning', 'qat+pruning', 'qat+kd', 'qat+kd+pruning'],
+        type=['normal', 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning', 'ptq+pruning', 'qat+pruning', 'qat+kd', 'qat+kd+pruning'],
         # 'normal', 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning',
         # ===== parameters for pruning =====
         pruning_type='global_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
@@ -63,7 +63,7 @@ def get_config_dict():
 
     # Merge all information into a dictionary variable
     config = dict(
-        task='train',            # 'train' or 'test' or 'compress'
+        task='compress',            # 'train' or 'test' or 'compress'
         dataset=dataset_info,
         path=path,
         model=model,

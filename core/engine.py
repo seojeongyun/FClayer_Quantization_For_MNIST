@@ -8,6 +8,7 @@ import torch
 import numpy as np
 import time
 import torch.nn.functional as F
+import json
 
 from torch import nn
 from copy import deepcopy
@@ -89,7 +90,6 @@ class Trainer():
         where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
 
-        what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
@@ -99,7 +99,6 @@ class Trainer():
                          how_much_dimension_of_each_layer + \
                          where_apply_dropout_in_layers + \
                          how_much_dropout_ratio + \
-                         what_kind_of_model_compression_technologies + \
                          how_much_pruning_ratio + \
                          how_much_epoch + \
                          how_much_batch_size + '.pth'
@@ -752,7 +751,7 @@ class Compressor():
 
         torch.quantization.prepare(quantized_model_ptq, inplace=True)
 
-        self.calibrate_model(model=quantized_model_ptq, num_batches=self.cfg['dataset']['batch_size'])
+        self.calibrate_model(model=quantized_model_ptq, num_batches=5)
 
         torch.quantization.convert(quantized_model_ptq, inplace=True)
 
@@ -780,6 +779,8 @@ class Compressor():
             formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
             print(formatted_text)
 
+            optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=5e-4)
+
             # ======= qat_train start =======
             pbar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
             #
@@ -796,9 +797,9 @@ class Compressor():
                 loss = self.compute_loss(pred, labels.float())
 
                 # Update
-                self.optimizer.zero_grad()
+                optimizer.zero_grad()
                 loss.backward()
-                self.optimizer.step()
+                optimizer.step()
 
                 #
                 pred_list.append(pred.argmax(dim=1))
@@ -808,8 +809,8 @@ class Compressor():
 
             pred = torch.cat(pred_list, dim=0)
             true = torch.cat(true_list, dim=0)
-
-            printf(say_something='qat_train_end', total_width=50)
+            printf(say_something='     ', total_width=50)
+        printf(say_something='qat_train_end', total_width=50)
             # ======= qat_train end =======
 
         torch.quantization.convert(model, inplace=True)
@@ -960,6 +961,10 @@ class Compressor():
                 total_width = 50
                 formatted_text = "\n{0:=>{width}}".format(text.center(total_width, '='), width=total_width)
                 print(formatted_text)
+
+                optimizer = torch.optim.Adam(student_model.parameters(), lr=1e-4, weight_decay=5e-4)
+
+
                 # ======= knowledge distillation start =======
                 pbar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
                 #
@@ -982,9 +987,9 @@ class Compressor():
                                                    self.cfg['compression']['alpha'])
 
                     # Update
-                    self.optimizer.zero_grad()
+                    optimizer.zero_grad()
                     loss.backward()
-                    self.optimizer.step()
+                    optimizer.step()
 
                     #
                     pred.append(student_pred.argmax(dim=1))
@@ -1018,11 +1023,6 @@ class Compressor():
 
     def start_test(self, model, type, result_dict):
         try:
-            if 'qat' == type[:3] or 'ptq' == type[:3]:
-                model = quantized_model_for_inf(quantized_model=model,
-                              layer_dim=self.cfg['model']['layer_dim'],
-                              dropout=self.cfg['solver']['dropout'],
-                              dropout_pos=self.cfg['model']['dropout_pos'])
             #
             model.to(self.device)
             model.eval()
@@ -1044,7 +1044,6 @@ class Compressor():
                 labels = batch_data[1].to(self.device)
                 #
                 out_net = model.to(self.device)(imgs)
-
                 #
                 pred.append(out_net.argmax(dim=1))
                 true.append(labels.argmax(dim=1))
@@ -1067,8 +1066,9 @@ class Compressor():
             formatted_text = "{0:=>{width}}\n\n".format(text.center(total_width, '='), width=total_width)
             print(formatted_text)
 
-            result_dict[str(type)]['op_time'] = op_time
-            result_dict[str(type)]['model_acc'] = acc
+            # result_dict[str(type)]['model'] = model
+            result_dict[str(type)]['op_time'] = round(op_time, 3)
+            result_dict[str(type)]['model_acc'] = round(float(acc), 5)
 
             return result_dict
 
@@ -1084,17 +1084,11 @@ class Compressor():
             for method_type in range(len(self.cfg['compression']['type'])):
                 method_list = []
                 #
-                model = deepcopy(self.model)
-                method_list = self.cfg['compression']['type'][method_type].split('+')
+                model = deepcopy(self.model)                                                    # model deep copy
+                #
+                method_list = self.cfg['compression']['type'][method_type].split('+')           # comp type split
                 #
                 result_dict.setdefault(self.cfg['compression']['type'][method_type], {})
-                if torch.cuda.is_available():
-                    if method_list[0] == 'qat' or method_list[0] == 'ptq':
-                        self.device = 'cpu'
-                    else:
-                        self.device = 'cuda'
-                else:
-                    print('cuda is not available')
                 #
                 printf(say_something=self.cfg['compression']['type'][method_type] + " compression start")
 
@@ -1104,22 +1098,32 @@ class Compressor():
                 else:
                     for method_idx in range(len(method_list)):
                         sel_method = method_list.pop(0)
-                        model = self.method_dict[sel_method](model)
+                        #
+                        if sel_method == 'ptq' or sel_method == 'qat':
+                            model = self.method_dict[sel_method](model)
 
-                        if len(method_list) >= 1 and (sel_method == 'ptq' or sel_method == 'qat'):
+                            ptq2linear = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
+                                                          dropout=self.cfg['solver']['dropout'],
+                                                          dropout_pos=self.cfg['model']['dropout_pos'])
                             layers_parameters = []
 
-                            for module in model.named_modules():
+                            for module in ptq2linear.named_modules():
                                 if 'layers.' in module[0]:
                                     layers_parameters.append(module[0])
 
                             for idx, layer_name in enumerate(layers_parameters):
                                 ptq_param = model.get_submodule('model_fp32').get_submodule('layers').get_submodule(str(idx))._weight_bias()[0]
                                 int_weight = torch.int_repr(ptq_param)
-                                model.get_submodule(layer_name).weight = torch.nn.Parameter(int_weight.float())
+                                ptq2linear.get_submodule(layer_name).weight = torch.nn.Parameter(int_weight.float())
 
+                            model = ptq2linear
+                        #
+                        else:
+                            model = self.method_dict[sel_method](model)
+                    #
                     result_dict = self.start_test(model, self.cfg['compression']['type'][method_type], result_dict)
-
+            with open('/result/result.json', 'w') as f:
+                json.dump(result_dict, f)
         except:
             print("sibal")
 
