@@ -73,37 +73,62 @@ class Trainer():
         # how much dropout ratio ?
 
         # ===== consider model compression technologies =====
-        # what kind of model compression technologies ?
+        # what type of pruning ?
         # how much pruning ratio ?
+        # the_number_of_n
         # other hyperparameters in quantization or knowledge distillation
 
         # ===== consider other hyperparameters =====
         # how much epoch ?
+        # how_much_qat_epoch ?
+        # how_much_qat_epoch ?
         # how much batch_size ?
 
-        what_kind_of_model = self.cfg['model']['type'] + '_'
-        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
+        what_kind_of_model = self.cfg['model']['type'] + '_'                            # FNC or CNN
+        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'     # the number of layers
         how_much_dimension_of_each_layer = ''
         for dim in self.cfg['model']['layer_dim']:
-            how_much_dimension_of_each_layer += str(dim) + '_'
+            how_much_dimension_of_each_layer += str(dim) + '_'                          # print each layer
 
         where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
 
+        what_type_of_pruning = str(self.cfg['compression']['pruning_type']) + '_'
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
+        the_number_of_n = str(self.cfg['compression']['pruning_n']) + '_'
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
+        how_much_kd_epoch = str(self.cfg['compression']['kd_epoch']) + '_'
+        how_much_qat_epoch = str(self.cfg['compression']['qat_epoch']) + '_'
         how_much_batch_size = str(self.cfg['dataset']['batch_size'])
-        weight_file_name = what_kind_of_model + \
-                         how_many_stacked_layer + \
-                         how_much_dimension_of_each_layer + \
-                         where_apply_dropout_in_layers + \
-                         how_much_dropout_ratio + \
-                         how_much_pruning_ratio + \
-                         how_much_epoch + \
-                         how_much_batch_size + '.pth'
+        if self.cfg['compression']['pruning_type'] == 'ln_structured':
+            weight_file_name = what_kind_of_model + \
+                               how_many_stacked_layer + \
+                               how_much_dimension_of_each_layer + \
+                               where_apply_dropout_in_layers + \
+                               how_much_dropout_ratio + \
+                               what_type_of_pruning + \
+                               how_much_pruning_ratio + \
+                               the_number_of_n + \
+                               how_much_epoch + \
+                               how_much_qat_epoch + \
+                               how_much_kd_epoch + \
+                               how_much_batch_size + '.pth'
+        else:
+            weight_file_name = what_kind_of_model + \
+                               how_many_stacked_layer + \
+                               how_much_dimension_of_each_layer + \
+                               where_apply_dropout_in_layers + \
+                               how_much_dropout_ratio + \
+                               what_type_of_pruning + \
+                               how_much_pruning_ratio + \
+                               how_much_epoch + \
+                               how_much_qat_epoch + \
+                               how_much_kd_epoch + \
+                               how_much_batch_size + '.pth'
 
         return weight_file_name
+
     # 패스 만들 때는 os.path.join 을 많이 사용함
     def make_base_path(self):
         base_path = os.path.join(self.cfg['path']['save_base_path'],
@@ -304,38 +329,59 @@ class Tester():
         # how much dropout ratio ?
 
         # ===== consider model compression technologies =====
-        # what kind of model compression technologies ?
+        # what type of pruning ?
         # how much pruning ratio ?
+        # the_number_of_n
         # other hyperparameters in quantization or knowledge distillation
 
         # ===== consider other hyperparameters =====
         # how much epoch ?
+        # how_much_qat_epoch ?
+        # how_much_qat_epoch ?
         # how much batch_size ?
 
-        what_kind_of_model = self.cfg['model']['type'] + '_'
-        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
+        what_kind_of_model = self.cfg['model']['type'] + '_'  # FNC or CNN
+        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'  # the number of layers
         how_much_dimension_of_each_layer = ''
         for dim in self.cfg['model']['layer_dim']:
-            how_much_dimension_of_each_layer += str(dim) + '_'
+            how_much_dimension_of_each_layer += str(dim) + '_'  # print each layer
 
         where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
 
-        what_kind_of_model_compression_technologies = self.cfg['compression']['type'] + '_'
+        what_type_of_pruning = str(self.cfg['compression']['pruning_type']) + '_'
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
+        the_number_of_n = str(self.cfg['compression']['pruning_n']) + '_'
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
+        how_much_kd_epoch = str(self.cfg['compression']['kd_epoch']) + '_'
+        how_much_qat_epoch = str(self.cfg['compression']['qat_epoch']) + '_'
         how_much_batch_size = str(self.cfg['dataset']['batch_size'])
-
-        weight_file_name = what_kind_of_model + \
-                         how_many_stacked_layer + \
-                         how_much_dimension_of_each_layer + \
-                         where_apply_dropout_in_layers + \
-                         how_much_dropout_ratio + \
-                         what_kind_of_model_compression_technologies + \
-                         how_much_pruning_ratio + \
-                         how_much_epoch + \
-                         how_much_batch_size + '.pth'
+        if self.cfg['compression']['pruning_type'] == 'ln_structured':
+            weight_file_name = what_kind_of_model + \
+                               how_many_stacked_layer + \
+                               how_much_dimension_of_each_layer + \
+                               where_apply_dropout_in_layers + \
+                               how_much_dropout_ratio + \
+                               what_type_of_pruning + \
+                               how_much_pruning_ratio + \
+                               the_number_of_n + \
+                               how_much_epoch + \
+                               how_much_qat_epoch + \
+                               how_much_kd_epoch + \
+                               how_much_batch_size + '.pth'
+        else:
+            weight_file_name = what_kind_of_model + \
+                               how_many_stacked_layer + \
+                               how_much_dimension_of_each_layer + \
+                               where_apply_dropout_in_layers + \
+                               how_much_dropout_ratio + \
+                               what_type_of_pruning + \
+                               how_much_pruning_ratio + \
+                               how_much_epoch + \
+                               how_much_qat_epoch + \
+                               how_much_kd_epoch + \
+                               how_much_batch_size + '.pth'
 
         return weight_file_name
     # 패스 만들 때는 os.path.join 을 많이 사용함
@@ -526,50 +572,60 @@ class Compressor():
         # how much dropout ratio ?
 
         # ===== consider model compression technologies =====
-        # what kind of model compression technologies ?
+        # what type of pruning ?
         # how much pruning ratio ?
+        # the_number_of_n
         # other hyperparameters in quantization or knowledge distillation
 
         # ===== consider other hyperparameters =====
         # how much epoch ?
+        # how_much_qat_epoch ?
+        # how_much_qat_epoch ?
+        # how much batch_size ?
 
-        what_kind_of_model = self.cfg['model']['type'] + '_'
-        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'
+        what_kind_of_model = self.cfg['model']['type'] + '_'  # FNC or CNN
+        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'  # the number of layers
         how_much_dimension_of_each_layer = ''
         for dim in self.cfg['model']['layer_dim']:
-            how_much_dimension_of_each_layer += str(dim) + '_'
+            how_much_dimension_of_each_layer += str(dim) + '_'  # print each layer
 
         where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
 
-        what_kind_of_model_compression_technologies = str(self.cfg['compression']['type']) + '_'
+        what_type_of_pruning = str(self.cfg['compression']['pruning_type']) + '_'
         how_much_pruning_ratio = str(self.cfg['compression']['pruning_ratio']) + '_'
-        what_is_pruning_type = str(self.cfg['compression']['pruning_type']) + '_'
-        value_of_ln_structured = str(self.cfg['compression']['pruning_n']) + '_'
+        the_number_of_n = str(self.cfg['compression']['pruning_n']) + '_'
 
         how_much_epoch = str(self.cfg['solver']['max_epoch']) + '_'
+        how_much_kd_epoch = str(self.cfg['compression']['kd_epoch']) + '_'
+        how_much_qat_epoch = str(self.cfg['compression']['qat_epoch']) + '_'
         how_much_batch_size = str(self.cfg['dataset']['batch_size'])
+        if self.cfg['compression']['pruning_type'] == 'ln_structured':
+            weight_file_name = what_kind_of_model + \
+                               how_many_stacked_layer + \
+                               how_much_dimension_of_each_layer + \
+                               where_apply_dropout_in_layers + \
+                               how_much_dropout_ratio + \
+                               what_type_of_pruning + \
+                               how_much_pruning_ratio + \
+                               the_number_of_n + \
+                               how_much_epoch + \
+                               how_much_qat_epoch + \
+                               how_much_kd_epoch + \
+                               how_much_batch_size + '.pth'
+        else:
+            weight_file_name = what_kind_of_model + \
+                               how_many_stacked_layer + \
+                               how_much_dimension_of_each_layer + \
+                               where_apply_dropout_in_layers + \
+                               how_much_dropout_ratio + \
+                               what_type_of_pruning + \
+                               how_much_pruning_ratio + \
+                               how_much_epoch + \
+                               how_much_qat_epoch + \
+                               how_much_kd_epoch + \
+                               how_much_batch_size + '.pth'
 
-        weight_file_name = what_kind_of_model + \
-                           how_many_stacked_layer + \
-                           how_much_dimension_of_each_layer + \
-                           where_apply_dropout_in_layers + \
-                           how_much_dropout_ratio + \
-                           what_kind_of_model_compression_technologies + \
-                           how_much_pruning_ratio + \
-                           how_much_epoch + \
-                           how_much_batch_size + '.pth'
-
-        # weight_file_name = what_kind_of_model + \
-        #                  how_many_stacked_layer + \
-        #                  how_much_dimension_of_each_layer + \
-        #                  where_apply_dropout_in_layers + \
-        #                  how_much_dropout_ratio + \
-        #                  what_kind_of_model_compression_technologies + \
-        #                  how_much_pruning_ratio + \
-        #                  how_much_epoch + \
-        #                  how_much_batch_size + '.pth'
-        #
         return weight_file_name
 
         # 패스 만들 때는 os.path.join 을 많이 사용함
@@ -607,8 +663,7 @@ class Compressor():
                                          dropout_pos=self.cfg['model']['dropout_pos'])
 
             print("Load model..")
-            # model.load_state_dict(torch.load(self.base_path + '/' + self.load_dir_name + '/' + self.weight_file_name))
-            model.load_state_dict(torch.load('/home/jysuh/PycharmProjects/FClayer_Quantization_For_MNIST/runs/linear_network_for_mnist/weights/teacher_model.pth'))
+            model.load_state_dict(torch.load(self.base_path + '/' + self.load_dir_name + '/' + self.weight_file_name))
             print("Model load success")
 
         else:
@@ -1122,8 +1177,8 @@ class Compressor():
                             model = self.method_dict[sel_method](model)
                     #
                     result_dict = self.start_test(model, self.cfg['compression']['type'][method_type], result_dict)
-            with open('/result/result.json', 'w') as f:
-                json.dump(result_dict, f)
+            with open(f'/home/jysuh/PycharmProjects/FClayer_Quantization_For_MNIST/result/{self.weight_file_name}.json', 'w') as f:
+                json.dump(result_dict, f, indent=4)
         except:
             print("sibal")
 

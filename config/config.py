@@ -17,8 +17,9 @@ def get_config_dict():
     model = dict(
         name='linear_network_for_mnist',
         type='FCN',
-        layer_dim=[784, 700, 600, 500, 400, 300, 200, 100, 50, 25, 10],
-        dropout_pos=8,          #if the first layer is [784, 98]0,1,2 ...
+        layer_dim=[784, 500, 300, 100, 50, 10],
+        # 784, 700, 600, 500, 400, 300, 200, 100, 50, 25, 10
+        dropout_pos=3,          #if the first layer is [784, 98]0,1,2 ...
     )
 
     solver = dict(
@@ -39,25 +40,23 @@ def get_config_dict():
         type=['normal', 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning', 'ptq+pruning', 'qat+pruning', 'qat+kd', 'qat+kd+pruning'],
         # 'normal', 'ptq', 'qat', 'kd', 'pruning', 'kd+pruning',
         # ===== parameters for pruning =====
-        pruning_type='global_unstructured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
+        pruning_type='ln_structured', # random_unstructured, l1_unstructured, ln_structured, global_unstructured
         pruning_n='1', # 1 or 2
-        pruning_ratio=0.5,
+        pruning_ratio=0.3,
 
         # ===== parameters for knowledge distillation =====
-        teacher_model_path='/home/jysuh/PycharmProjects/FClayer_Quantization_For_MNIST/runs/linear_network_for_mnist/weights/teacher_model.pth',
+        teacher_model_path='/home/jysuh/PycharmProjects/FClayer_Quantization_For_MNIST/runs/linear_network_for_mnist/weights/FCN_10_784_700_600_500_400_300_200_100_50_25_10_8_0.2_ln_structured_0.3_1_50_5_5_100.pth',
         t_layer_dim=[784, 700, 600, 500, 400, 300, 200, 100, 50, 25, 10],
-        kd_epoch=1,
+        kd_epoch=5,
         t=20.0,
         alpha=0.7,
 
         # ===== parameters for quantization =====
-        qat_epoch=1,
+        qat_epoch=5,
         # the value of self.compression has only 'quantization', 'pruning', 'knowledge_distillation',
         # 'quantization+pruning', 'quantization+knowledge_distillation', 'pruning+knowledge_distillation'
         # 'quantization+pruning+knowledge_distillation'
         # the default value is 'nothing'
-        #
-        distill_type='qat', # qat or ptq or nothing
     )
 
 
