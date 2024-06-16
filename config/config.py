@@ -31,7 +31,7 @@ def get_config_dict():
         weight_decay=5e-4,
         max_epoch=50,
         dropout=0.2,
-        relu6_alpha=10.0,
+        relu6_max=50.0,
     )
 
     scheduler = dict(
