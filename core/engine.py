@@ -15,7 +15,7 @@ from copy import deepcopy
 from torch.utils.data import DataLoader
 from model.linear_network import ClassifierModule
 from model.quantized_linear_model import quantizedLinearModule
-from model.quantized_linear_model_for_inference import quantized_model_for_inf
+
 
 def printf(say_something:str, total_width:int=50, format=None):
     if format is None:
