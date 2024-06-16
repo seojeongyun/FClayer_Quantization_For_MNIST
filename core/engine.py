@@ -85,6 +85,7 @@ class Trainer():
         # how much batch_size ?
 
         what_kind_of_model = self.cfg['model']['type'] + '_'                            # FNC or CNN
+        what_type_of_atfc = self.cfg['model']['atfc'] + '_'
         how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'     # the number of layers
         how_much_dimension_of_each_layer = ''
         for dim in self.cfg['model']['layer_dim']:
@@ -103,6 +104,7 @@ class Trainer():
         how_much_batch_size = str(self.cfg['dataset']['batch_size'])
         if self.cfg['compression']['pruning_type'] == 'ln_structured':
             weight_file_name = what_kind_of_model + \
+                               what_type_of_atfc + \
                                how_many_stacked_layer + \
                                how_much_dimension_of_each_layer + \
                                where_apply_dropout_in_layers + \
@@ -116,6 +118,7 @@ class Trainer():
                                how_much_batch_size + '.pth'
         else:
             weight_file_name = what_kind_of_model + \
+                               what_type_of_atfc + \
                                how_many_stacked_layer + \
                                how_much_dimension_of_each_layer + \
                                where_apply_dropout_in_layers + \
@@ -173,10 +176,14 @@ class Trainer():
             from model.linear_network import ClassifierModule
             if self.cfg['compression']['type'] == 'knowledge_distillation':
                 model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
+                                         atfc=self.cfg['model']['atfc'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
             else:
-                model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'], dropout=self.cfg['solver']['dropout'], dropout_pos=self.cfg['model']['dropout_pos'])
+                model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
+                                         atfc=self.cfg['model']['atfc'],
+                                         dropout=self.cfg['solver']['dropout'],
+                                         dropout_pos=self.cfg['model']['dropout_pos'])
         else:
             raise NotImplementedError
 
@@ -340,11 +347,12 @@ class Tester():
         # how_much_qat_epoch ?
         # how much batch_size ?
 
-        what_kind_of_model = self.cfg['model']['type'] + '_'  # FNC or CNN
-        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'  # the number of layers
+        what_kind_of_model = self.cfg['model']['type'] + '_'                            # FNC or CNN
+        what_type_of_atfc = self.cfg['model']['atfc'] + '_'
+        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'     # the number of layers
         how_much_dimension_of_each_layer = ''
         for dim in self.cfg['model']['layer_dim']:
-            how_much_dimension_of_each_layer += str(dim) + '_'  # print each layer
+            how_much_dimension_of_each_layer += str(dim) + '_'                          # print each layer
 
         where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
@@ -359,6 +367,7 @@ class Tester():
         how_much_batch_size = str(self.cfg['dataset']['batch_size'])
         if self.cfg['compression']['pruning_type'] == 'ln_structured':
             weight_file_name = what_kind_of_model + \
+                               what_type_of_atfc + \
                                how_many_stacked_layer + \
                                how_much_dimension_of_each_layer + \
                                where_apply_dropout_in_layers + \
@@ -372,6 +381,7 @@ class Tester():
                                how_much_batch_size + '.pth'
         else:
             weight_file_name = what_kind_of_model + \
+                               what_type_of_atfc + \
                                how_many_stacked_layer + \
                                how_much_dimension_of_each_layer + \
                                where_apply_dropout_in_layers + \
@@ -410,10 +420,12 @@ class Tester():
             from model.linear_network import ClassifierModule
             if self.cfg['compression']['type'] == 'knowledge_distillation':
                 model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
+                                         atfc=self.cfg['model']['atfc'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
             else:
                 model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
+                                         atfc=self.cfg['model']['atfc'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
             print("Load model..")
@@ -583,11 +595,12 @@ class Compressor():
         # how_much_qat_epoch ?
         # how much batch_size ?
 
-        what_kind_of_model = self.cfg['model']['type'] + '_'  # FNC or CNN
-        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'  # the number of layers
+        what_kind_of_model = self.cfg['model']['type'] + '_'                            # FNC or CNN
+        what_type_of_atfc = self.cfg['model']['atfc'] + '_'
+        how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'     # the number of layers
         how_much_dimension_of_each_layer = ''
         for dim in self.cfg['model']['layer_dim']:
-            how_much_dimension_of_each_layer += str(dim) + '_'  # print each layer
+            how_much_dimension_of_each_layer += str(dim) + '_'                          # print each layer
 
         where_apply_dropout_in_layers = str(self.cfg['model']['dropout_pos']) + '_'
         how_much_dropout_ratio = str(self.cfg['solver']['dropout']) + '_'
@@ -602,6 +615,7 @@ class Compressor():
         how_much_batch_size = str(self.cfg['dataset']['batch_size'])
         if self.cfg['compression']['pruning_type'] == 'ln_structured':
             weight_file_name = what_kind_of_model + \
+                               what_type_of_atfc + \
                                how_many_stacked_layer + \
                                how_much_dimension_of_each_layer + \
                                where_apply_dropout_in_layers + \
@@ -615,6 +629,7 @@ class Compressor():
                                how_much_batch_size + '.pth'
         else:
             weight_file_name = what_kind_of_model + \
+                               what_type_of_atfc + \
                                how_many_stacked_layer + \
                                how_much_dimension_of_each_layer + \
                                where_apply_dropout_in_layers + \
@@ -655,10 +670,12 @@ class Compressor():
             from model.linear_network import ClassifierModule
             if self.cfg['compression']['type'] == 'knowledge_distillation':
                 model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
+                                         atfc=self.cfg['model']['atfc'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
             else:
                 model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
+                                         atfc=self.cfg['model']['atfc'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
 
@@ -979,6 +996,7 @@ class Compressor():
             # Load Teacher model
             state_dict = torch.load(self.cfg['compression']['teacher_model_path'])
             teacher_model = ClassifierModule(layer_dim=self.cfg['compression']['t_layer_dim'],
+                                             atfc=self.cfg['model']['atfc'],
                                              dropout=self.cfg['solver']['dropout'],
                                              dropout_pos=self.cfg['model']['dropout_pos'])
             teacher_model.load_state_dict(state_dict)
@@ -1158,6 +1176,7 @@ class Compressor():
                             model = self.method_dict[sel_method](model)
 
                             ptq2linear = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
+                                                          atfc=self.cfg['model']['atfc'],
                                                           dropout=self.cfg['solver']['dropout'],
                                                           dropout_pos=self.cfg['model']['dropout_pos'])
                             layers_parameters = []
