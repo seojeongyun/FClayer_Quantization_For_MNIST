@@ -85,7 +85,12 @@ class Trainer():
         # how much batch_size ?
 
         what_kind_of_model = self.cfg['model']['type'] + '_'                            # FNC or CNN
-        what_type_of_atfc = self.cfg['model']['atfc'] + '_'
+        #
+        if self.cfg['model']['atfc'] == 'ReLU6':
+            what_type_of_atfc = self.cfg['model']['atfc'] + str(self.cfg['solver']['relu6_alpha']) + '_'
+        else:
+            what_type_of_atfc = self.cfg['model']['atfc'] + '_'
+        #
         how_many_stacked_layer = str(len(self.cfg['model']['layer_dim']) - 1) + '_'     # the number of layers
         how_much_dimension_of_each_layer = ''
         for dim in self.cfg['model']['layer_dim']:
@@ -177,11 +182,13 @@ class Trainer():
             if self.cfg['compression']['type'] == 'knowledge_distillation':
                 model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
                                          atfc=self.cfg['model']['atfc'],
+                                         alpha=self.cfg['solver']['relu6_alpha'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
             else:
                 model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
                                          atfc=self.cfg['model']['atfc'],
+                                         alpha=self.cfg['solver']['relu6_alpha'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
         else:
@@ -421,11 +428,13 @@ class Tester():
             if self.cfg['compression']['type'] == 'knowledge_distillation':
                 model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
                                          atfc=self.cfg['model']['atfc'],
+                                         alpha=self.cfg['solver']['relu6_alpha'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
             else:
                 model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
                                          atfc=self.cfg['model']['atfc'],
+                                         alpha=self.cfg['solver']['relu6_alpha'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
             print("Load model..")
@@ -671,11 +680,13 @@ class Compressor():
             if self.cfg['compression']['type'] == 'knowledge_distillation':
                 model = ClassifierModule(layer_dim=self.cfg['model']['t_layer_dim'],
                                          atfc=self.cfg['model']['atfc'],
+                                         alpha=self.cfg['solver']['relu6_alpha'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
             else:
                 model = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
                                          atfc=self.cfg['model']['atfc'],
+                                         alpha=self.cfg['solver']['relu6_alpha'],
                                          dropout=self.cfg['solver']['dropout'],
                                          dropout_pos=self.cfg['model']['dropout_pos'])
 
@@ -997,6 +1008,7 @@ class Compressor():
             state_dict = torch.load(self.cfg['compression']['teacher_model_path'])
             teacher_model = ClassifierModule(layer_dim=self.cfg['compression']['t_layer_dim'],
                                              atfc=self.cfg['model']['atfc'],
+                                             alpha=self.cfg['solver']['relu6_alpha'],
                                              dropout=self.cfg['solver']['dropout'],
                                              dropout_pos=self.cfg['model']['dropout_pos'])
             teacher_model.load_state_dict(state_dict)
@@ -1177,6 +1189,7 @@ class Compressor():
 
                             ptq2linear = ClassifierModule(layer_dim=self.cfg['model']['layer_dim'],
                                                           atfc=self.cfg['model']['atfc'],
+                                                          alpha=self.cfg['solver']['relu6_alpha'],
                                                           dropout=self.cfg['solver']['dropout'],
                                                           dropout_pos=self.cfg['model']['dropout_pos'])
                             layers_parameters = []

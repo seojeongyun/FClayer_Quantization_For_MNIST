@@ -18,7 +18,7 @@ def get_config_dict():
         name='linear_network_for_mnist',
         type='FCN',
         layer_dim=[784, 500, 300, 100, 50, 10],
-        atfc="ReLU", # ReLU or ReLU6
+        atfc="ReLU6", # ReLU or ReLU6
         # 784, 700, 600, 500, 400, 300, 200, 100, 50, 25, 10
         dropout_pos=3,          #if the first layer is [784, 98]0,1,2 ...
     )
@@ -31,6 +31,7 @@ def get_config_dict():
         weight_decay=5e-4,
         max_epoch=50,
         dropout=0.2,
+        relu6_alpha=10.0,
     )
 
     scheduler = dict(

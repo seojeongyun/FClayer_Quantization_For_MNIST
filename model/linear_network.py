@@ -4,14 +4,16 @@ import torch.nn.functional as F
 from torch import nn
 
 class ClassifierModule(nn.Module):
-    def __init__(self, layer_dim=[784,98,10], atfc='ReLU', dropout=0.5, dropout_pos=0):
+    def __init__(self, layer_dim=[784,98,10], atfc='ReLU', alpha=10.0, dropout=0.5, dropout_pos=0):
         super(ClassifierModule, self).__init__()
 
+        self.alpha = alpha
         self.layer_dim = layer_dim
         self.dropout_pos = dropout_pos
         self.atfc_type = atfc
+
         #
-        self.activation = self.get_atfc()
+        self.activation = self.alpha * self.get_atfc()
         self.dropout = nn.Dropout(dropout)
         #
         self.layers = nn.ModuleList(self.make_layer())
